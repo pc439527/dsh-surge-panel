@@ -1,0 +1,3 @@
+- insert:
+    - id: surge-panel
+      name: '@local/dsh-surge-panel'

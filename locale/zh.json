@@ -1,0 +1,7 @@
+{
+  "meta": {
+    "title": "Surge 系统监控",
+    "description": "参照 surge-lan-console 适配的 DSH 原生局域网网关监控面板：概览、多设备/多实例管理与设置，含指标条、流量图、设备总览、节点质量、实时事件、Fleet 汇总与 API 诊断。",
+    "detail": "docs/DETAIL.zh.md"
+  }
+}

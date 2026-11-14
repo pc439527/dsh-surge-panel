@@ -1,0 +1,7 @@
+{
+  "meta": {
+    "title": "Surge system monitor",
+    "description": "A DSH-native LAN gateway monitoring dashboard adapted from surge-lan-console: overview, multi-device / multi-instance management and settings, with metric strips, traffic charts, device fleet, node quality, live events, fleet totals and API diagnostics.",
+    "detail": "docs/DETAIL.md"
+  }
+}

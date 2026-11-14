@@ -1,0 +1,17 @@
+# Dependencies and generated packages
+node_modules/
+*.tgz
+coverage/
+
+# Local settings, credentials and operating-system files
+.DS_Store
+.env
+.env.*
+!.env.example
+surge-panel-connections.json
+surge-panel-connections.json.*
+*.log
+
+# Original layout captures contain private network addresses.
+# Publish only flattened, redacted derivatives in docs/images/.
+docs/layout-check-*.png
