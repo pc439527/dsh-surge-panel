@@ -6,9 +6,9 @@ A DSH-native plugin adapted from the original `surge-lan-console`. All data come
 
 ## Three tabs
 
-- **Overview**: download/upload speed, session traffic, uptime, active connections, traffic trend, LAN device fleet, network environment, node traffic and recent events.
-- **Device management**: CRUD for multiple Surge instances (connections), set-active, connectivity test, and fleet totals (online devices, active requests, total down/up). The first entry is always "Local Surge", discovered from the local Surge profile by the Host.
-- **Settings**: appearance (system / light / dark, scoped to this panel), poll interval, trend sample points, device/event display limits, pause polling, current connection, API diagnostics (per-endpoint status / latency / response shape), about and reset to defaults.
+- **Overview**: download/upload speed, session traffic, uptime, active connections (with expandable "Recent requests" details), traffic trend chart with Y-axis ticks and hover crosshair/tooltip, LAN device fleet sorted by live speed, network environment, node traffic and expandable recent events. The top bar also includes a quick-switch active-connection popover, auto-refresh pause/resume toggle, and spinning manual refresh button.
+- **Device management**: CRUD for multiple Surge instances (connections), set-active, "Save & activate", inline per-card connectivity testing, and fleet totals (online devices, active requests, total down/up). The first entry is always "Local Surge", discovered from local Surge profiles sorted by most recently modified, displaying live online/offline status, endpoint URL, latency, and throughput.
+- **Settings**: appearance (system / light / dark, scoped to this panel), poll interval, trend sample points, device/event display limits, pause polling, current connection summary, API diagnostics (per-endpoint status / latency / response shape in a horizontally scrollable wrapper), about, and reset to defaults with confirmation feedback.
 
 ## Features recovered from the reference product
 
@@ -21,18 +21,26 @@ A DSH-native plugin adapted from the original `surge-lan-console`. All data come
 
 Preferences and connections are stored separately: preferences in browser `localStorage`; connection metadata and API keys in `~/.dsh/surge-panel-connections.json` (plain JSON, mode 600). Connection lists return a `hasKey` flag, connection metadata and CA certificates, without stored keys. Overview and diagnostics target the selected instance; Fleet always includes all configured connections and Local Surge.
 
-## Reliability updates in 1.1.1
+## Highlights in 1.1.2
+
+- **fnOS subpath gateway compatibility**: the frontend `api()` helper auto-detects `window.__FNOS_GATEWAY_CONFIG__.prefix` and `<base href>` so `/surge-api/*` works seamlessly behind subpath reverse proxies such as fnOS (`/app/fn-deepseek-harness`).
+- **Overview & chart upgrades**: `AreaChart` adds Y-axis ticks, hover crosshair/tooltip, dynamic scale over visible series only, and unified binary throughput units (B/s to GB/s); LAN devices sort by live speed then session total with inline live speed and stable key selection; active connections expand into a "Recent requests" table; long event lines expand on click.
+- **Device management & header UX**: Local Surge card displays live Fleet status (online/offline, address, RTT, throughput, error); delete confirmation uses clear destructive wording and closes an active edit form for the deleted entry; test results render inline inside the tested card; native `<form>` supports `Enter`/`Esc`, client-side validation, and "Save & activate"; header adds active-connection quick-switcher and pause/resume shortcut.
+- **Structured error codes & accessibility**: Host endpoints return structured `code` values and preserve `activeConnection` while offline for localized rendering; light-mode primary button contrast upgraded to `#ffffff` on `#be4d27` (WCAG AA); added `tablist`/`tab`/`tabpanel` with arrow-key navigation, `aria-labelledby`, `aria-pressed`, and scrollable diagnostics table wrapper.
+- **Host & security hardening**: CA PEM validated via `crypto.X509Certificate`; added IPv6-mapped metadata host blocking (`::ffff:169.254.169.254`); deleting a missing connection returns `404`; runtime caches reset on plugin unload and response cache is bounded; local discovery prioritizes newest modified profile; `package.json` `files` uses an explicit allowlist.
+
+## Reliability foundations (1.1.1)
 
 - **Connection and sample isolation**: changing a connection or its configuration clears trend samples. Late responses are cancelled or ignored. The Host checks configuration revisions during collection so data cannot be relabelled as another instance.
 - **Bounded requests**: Surge requests have a total deadline and settle on aborted, errored, prematurely closed or oversized responses (16 MiB limit). Browser requests time out and are cancelled on unmount. Request bodies must be JSON objects, with a 64 KiB limit and a 10-second deadline.
 - **Atomic persistence**: connections are written to an exclusive mode-600 temporary file and renamed before committing the in-memory state. Write failures are surfaced and preserve the previous connection and key. Corrupt storage is never silently overwritten.
-- **Verified HTTPS**: certificate chains and hostnames are verified. HTTPS connections accept an optional PEM CA certificate (16 KiB limit) for private or self-signed certificates. For an untrusted auto-discovered local HTTPS endpoint, add a manual HTTPS connection with the CA. Enter only a domain or IP in the host field and set the port separately; IPv6 is supported.
+- **Verified HTTPS**: certificate chains and hostnames are verified. HTTPS connections accept an optional PEM CA certificate (16 KiB limit, verified via `X509Certificate`) for private or self-signed certificates. For an untrusted auto-discovered local HTTPS endpoint, add a manual HTTPS connection with the CA. Enter only a domain or IP in the host field and set the port separately; IPv6 is supported.
 - **On-demand polling and shared caches**: automatic sampling runs only while the panel is mounted, the page is visible and polling is unpaused. The next poll starts after the previous request settles. The Host coalesces concurrent snapshots and endpoint requests. Successful policies, modules, rules and profile results are cached for 60 seconds; other successes and all failures for 1 second. Local discovery is cached for 30 seconds. Fleet refreshes on tab entry or manually, with at most four instances probed concurrently.
 - **Honest availability**: optional endpoint failures show unavailable data, or the last successful result and its timestamp, instead of zero or an empty list. Incomplete Fleet request totals show `—`; throughput totals include only instances with a successful current response. Connection loading, testing, persistence and diagnostics errors are surfaced in the panel.
 
 ## Development checks
 
-Run `npm run check` for Host and Client syntax checks and `npm test` for regression tests. Tests use isolated storage and transport doubles, do not read real keys or contact Surge, and do not emulate React or browser layout. Real TLS handshakes, Surge version compatibility and visual layout still require validation in the actual environment.
+Run `npm run check` for Host and Client syntax checks and `npm test` for 30 regression tests (covering Host routes, IPv6/SSRF blocking, X509 CA validation, discovery ordering, device sorting & recent requests, locale/version/files-allowlist consistency, etc.). Tests use isolated storage and transport doubles, do not read real keys or contact Surge, and do not emulate React or browser layout. Real TLS handshakes, Surge version compatibility and visual layout still require validation in the actual environment.
 
 ## Display fixes
 

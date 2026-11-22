@@ -36,7 +36,7 @@ window.__ModuleLoader__.load({
 
     const NS = 'surgePanel';
     const PANEL_ID = 'surge-monitor';
-    const VERSION = '1.1.1';
+    const VERSION = '1.1.2';
 
     /* ------------------------------------------------------------------ *
      * Dictionaries. zh + en are the baselines; every other UI locale falls
@@ -57,10 +57,13 @@ window.__ModuleLoader__.load({
       'status.stale': '上次成功数据',
       'status.paused': '自动刷新已暂停',
       'status.partial': '仅汇总已成功读取的实例',
-      'dm.field.ca': 'HTTPS 自定义 CA 证书（可选，PEM）',
-      'dm.field.caHint': 'HTTPS 始终校验证书；自签证书请填写其受信任 CA。主机字段仅填写域名或 IP。',
+      'sep': '；',
       'action.refresh': '刷新',
       'action.retry': '重试',
+      'action.pause': '暂停自动刷新',
+      'action.resume': '恢复自动刷新',
+      'action.switchConn': '切换当前连接',
+      'action.manageConns': '管理连接…',
       'tab.overview': '概览',
       'tab.devices': '设备管理',
       'tab.settings': '设置',
@@ -73,6 +76,17 @@ window.__ModuleLoader__.load({
       'metrics.uptime': '运行时长',
       'metrics.conns': '活动连接',
       'metrics.failed': '失败请求',
+      'requests.title': '最近请求',
+      'requests.show': '查看明细',
+      'requests.hide': '收起明细',
+      'requests.target': '目标',
+      'requests.policy': '策略',
+      'requests.status': '状态',
+      'requests.traffic': '流量',
+      'requests.failed': '失败',
+      'requests.active': '活动中',
+      'requests.done': '已完成',
+      'requests.empty': '暂无最近请求',
       'chart.title': '流量趋势',
       'chart.down': '下载',
       'chart.up': '上传',
@@ -82,7 +96,9 @@ window.__ModuleLoader__.load({
       'chart.peak': '峰值',
       'devices.title': '设备总览',
       'devices.online': '台设备',
-      'devices.throughput': '当前吞吐',
+      'devices.throughput': '实时吞吐',
+      'devices.sessionTotal': '会话累计',
+      'devices.barTitle': '条形比例表示该设备占最高会话流量的占比',
       'devices.empty': '暂无设备数据',
       'network.title': '网络环境',
       'network.mode': '出站模式',
@@ -95,17 +111,51 @@ window.__ModuleLoader__.load({
       'quality.empty': '暂无节点数据',
       'events.title': '最近事件',
       'events.empty': '暂无事件',
+      'events.toggleHint': '点击展开或收起完整事件内容',
       'note': '数据来自 Surge HTTP API：本机密钥由 Host 读取；手动填写的密钥仅用于测试或保存，保存后不会返回浏览器。曲线记录当前连接的真实采样，切换连接后重新开始。',
+      /* ---- 错误与状态码 ---- */
+      'err.NO_GATEWAY': '未找到可用的 Surge HTTP API，请检查当前连接；HTTPS 自签证书需在连接中配置受信任 CA。',
+      'err.API_ERROR': 'Surge 流量 API 不可用，请检查连接或运行 API 诊断。',
+      'err.CONNECTION_CHANGED': '连接已切换，请刷新重试。',
+      'err.ID_RESERVED': '连接 ID "local" 为保留值。',
+      'err.ID_INVALID': '连接 ID 只能包含字母、数字、-、_。',
+      'err.INVALID_PROTOCOL': '协议仅支持 HTTP 或 HTTPS。',
+      'err.INVALID_HOST': '主机仅填写域名或 IP，请勿附加协议、端口或路径。',
+      'err.HOST_BLOCKED': '该主机地址不允许访问。',
+      'err.INVALID_PORT': '端口须为 1–65535 的整数。',
+      'err.INVALID_API_KEY': 'API 密钥格式不合法。',
+      'err.INVALID_CA_CERT': 'CA 证书须为有效的 X.509 PEM 格式，且不超过 16 KB。',
+      'err.BAD_BODY': '请求参数格式不合法。',
+      'err.MAX_CONNECTIONS': '最多保存 100 个连接。',
+      'err.LOCAL_NOT_DELETABLE': '本机连接不可删除。',
+      'err.CONNECTION_NOT_FOUND': '该连接不存在或已被删除。',
+      'err.LOCAL_NOT_FOUND': '未发现本机 Surge HTTP API。',
+      'err.MISSING_CONNECTION': '缺少连接信息或 API 密钥。',
+      'err.API_UNREACHABLE': 'API 无响应',
+      'err.PARTIAL_DATA': '部分端点不可用',
+      'err.VALIDATION_ERROR': '连接配置校验失败。',
+      'ep.requests': '活动请求',
+      'ep.outbound': '出站模式',
+      'ep.devices': '设备列表',
+      'ep.events': '最近事件',
+      'ep.profile': '当前配置',
+      'ep.rules': '规则',
+      'ep.policies': '策略组',
+      'ep.modules': '模块',
+      'ep.dns': 'DNS 缓存',
+      'ep.traffic': '流量统计',
       /* ---- 设备管理 ---- */
       'dm.title': '设备管理',
       'dm.subtitle': '管理多个 Surge 实例，切换当前连接，并汇总所有实例的在线状态与吞吐',
       'dm.add': '添加连接',
       'dm.edit': '编辑',
       'dm.delete': '删除',
+      'dm.confirmDeleteBtn': '确认删除',
       'dm.activate': '设为当前',
       'dm.active': '当前',
       'dm.test': '测试连接',
       'dm.save': '保存',
+      'dm.saveActivate': '保存并设为当前',
       'dm.cancel': '取消',
       'dm.confirmDelete': '确认删除该连接？此操作不可撤销。',
       'dm.field.name': '名称',
@@ -117,7 +167,10 @@ window.__ModuleLoader__.load({
       'dm.field.keyHint': '留空表示不修改已保存的密钥',
       'dm.field.keyStored': '已保存',
       'dm.field.keyMissing': '未设置',
+      'dm.field.ca': 'HTTPS 自定义 CA 证书（可选，PEM）',
+      'dm.field.caHint': 'HTTPS 始终校验证书；自签证书请填写其受信任 CA。主机字段仅填写域名或 IP。',
       'dm.local': '本机',
+      'dm.localName': '本机 Surge',
       'dm.localHint': '自动读取本机 Surge 配置，密钥不进入浏览器；可切换、测试，但不可编辑或删除。',
       'dm.form.add': '添加 Surge 实例',
       'dm.form.edit': '编辑 Surge 实例',
@@ -127,7 +180,6 @@ window.__ModuleLoader__.load({
       'dm.totalUp': '总上传',
       'dm.activeReqs': '活动请求',
       'dm.fleet.title': '设备总览（多实例汇总）',
-      'dm.fleet.refresh': '刷新全部',
       'dm.status.online': '在线',
       'dm.status.offline': '离线',
       'dm.status.noKey': '缺少密钥',
@@ -146,8 +198,9 @@ window.__ModuleLoader__.load({
       'dm.error': '操作失败',
       'dm.keyBadge': '密钥',
       'dm.rttUnit': 'ms',
-      'dm.refresh': '刷新',
+      'dm.refresh': '刷新全部',
       'dm.saveErr': '请填写名称、主机与端口',
+      'dm.testErr': '请填写有效的主机与端口后再测试',
       /* ---- 设置 ---- */
       'st.title': '设置',
       'st.subtitle': '面板偏好保存在本浏览器；连接与密钥保存在 Host，已保存的密钥不会回传',
@@ -188,6 +241,7 @@ window.__ModuleLoader__.load({
       'st.about.type': '类型',
       'st.about.source': '数据来源',
       'st.reset': '恢复默认',
+      'st.resetDone': '已恢复默认设置',
       'st.note': '说明：原项目的「锁定控制台 / 通知中心 / 后台自动化 / 演示模式」与 Surge 功能写开关，依赖独立的 Node Core、SQLite 和任务调度层；本插件是 DSH 原生的只读监控面板，不内嵌这些写操作或伪造数据，改以面板级外观、刷新与多实例管理提供等价能力。',
       'st.loading': '加载中…',
       'st.typeValue': 'DSH 原生插件（Host + Client）',
@@ -208,10 +262,13 @@ window.__ModuleLoader__.load({
       'status.stale': 'Last successful data',
       'status.paused': 'Auto-refresh paused',
       'status.partial': 'Totals include successfully read instances only',
-      'dm.field.ca': 'Custom HTTPS CA certificate (optional, PEM)',
-      'dm.field.caHint': 'HTTPS always verifies certificates. Add a trusted CA for self-signed certificates. Enter only a domain or IP in Host.',
+      'sep': '; ',
       'action.refresh': 'Refresh',
       'action.retry': 'Retry',
+      'action.pause': 'Pause auto-refresh',
+      'action.resume': 'Resume auto-refresh',
+      'action.switchConn': 'Switch active connection',
+      'action.manageConns': 'Manage connections…',
       'tab.overview': 'Overview',
       'tab.devices': 'Devices',
       'tab.settings': 'Settings',
@@ -224,6 +281,17 @@ window.__ModuleLoader__.load({
       'metrics.uptime': 'Uptime',
       'metrics.conns': 'Active connections',
       'metrics.failed': 'Failed requests',
+      'requests.title': 'Recent requests',
+      'requests.show': 'Details',
+      'requests.hide': 'Hide',
+      'requests.target': 'Target',
+      'requests.policy': 'Policy',
+      'requests.status': 'Status',
+      'requests.traffic': 'Traffic',
+      'requests.failed': 'Failed',
+      'requests.active': 'Active',
+      'requests.done': 'Done',
+      'requests.empty': 'No recent requests',
       'chart.title': 'Traffic',
       'chart.down': 'Download',
       'chart.up': 'Upload',
@@ -233,7 +301,9 @@ window.__ModuleLoader__.load({
       'chart.peak': 'Peak',
       'devices.title': 'Devices',
       'devices.online': 'devices',
-      'devices.throughput': 'Throughput',
+      'devices.throughput': 'Live throughput',
+      'devices.sessionTotal': 'Session total',
+      'devices.barTitle': 'Bar width shows session traffic relative to the top device',
       'devices.empty': 'No device data',
       'network.title': 'Network environment',
       'network.mode': 'Outbound mode',
@@ -246,17 +316,51 @@ window.__ModuleLoader__.load({
       'quality.empty': 'No node data',
       'events.title': 'Recent events',
       'events.empty': 'No events',
+      'events.toggleHint': 'Click to expand or collapse full event text',
       'note': 'Data comes from the Surge HTTP API. The Host reads local keys; manually entered keys are submitted for testing or saving and are never returned once stored. The curve records real samples for the current connection and restarts when it changes.',
+      /* ---- Errors & status codes ---- */
+      'err.NO_GATEWAY': 'No reachable Surge HTTP API found. Check the active connection; for self-signed HTTPS certificates, configure a trusted CA.',
+      'err.API_ERROR': 'Surge traffic API is unavailable. Check the connection or run API diagnostics.',
+      'err.CONNECTION_CHANGED': 'Active connection changed. Please refresh.',
+      'err.ID_RESERVED': 'Connection ID "local" is reserved.',
+      'err.ID_INVALID': 'Connection ID may only contain letters, digits, - and _.',
+      'err.INVALID_PROTOCOL': 'Protocol must be HTTP or HTTPS.',
+      'err.INVALID_HOST': 'Enter only a hostname or IP address without scheme, port or path.',
+      'err.HOST_BLOCKED': 'This host address is not allowed.',
+      'err.INVALID_PORT': 'Port must be an integer between 1 and 65535.',
+      'err.INVALID_API_KEY': 'API key format is invalid.',
+      'err.INVALID_CA_CERT': 'CA certificate must be valid X.509 PEM and at most 16 KB.',
+      'err.BAD_BODY': 'Invalid request payload.',
+      'err.MAX_CONNECTIONS': 'At most 100 connections can be saved.',
+      'err.LOCAL_NOT_DELETABLE': 'The local connection cannot be deleted.',
+      'err.CONNECTION_NOT_FOUND': 'Connection not found or already deleted.',
+      'err.LOCAL_NOT_FOUND': 'Local Surge HTTP API was not detected.',
+      'err.MISSING_CONNECTION': 'Missing connection details or API key.',
+      'err.API_UNREACHABLE': 'API unreachable',
+      'err.PARTIAL_DATA': 'Some endpoints are unavailable',
+      'err.VALIDATION_ERROR': 'Connection configuration is invalid.',
+      'ep.requests': 'Active requests',
+      'ep.outbound': 'Outbound mode',
+      'ep.devices': 'Devices',
+      'ep.events': 'Events',
+      'ep.profile': 'Profile',
+      'ep.rules': 'Rules',
+      'ep.policies': 'Policies',
+      'ep.modules': 'Modules',
+      'ep.dns': 'DNS cache',
+      'ep.traffic': 'Traffic',
       /* ---- Devices ---- */
       'dm.title': 'Device management',
       'dm.subtitle': 'Manage multiple Surge instances, switch the active one and review fleet-wide status',
       'dm.add': 'Add connection',
       'dm.edit': 'Edit',
       'dm.delete': 'Delete',
+      'dm.confirmDeleteBtn': 'Confirm delete',
       'dm.activate': 'Set active',
       'dm.active': 'Active',
       'dm.test': 'Test',
       'dm.save': 'Save',
+      'dm.saveActivate': 'Save & activate',
       'dm.cancel': 'Cancel',
       'dm.confirmDelete': 'Delete this connection? This cannot be undone.',
       'dm.field.name': 'Name',
@@ -268,7 +372,10 @@ window.__ModuleLoader__.load({
       'dm.field.keyHint': 'Leave blank to keep the saved key',
       'dm.field.keyStored': 'Stored',
       'dm.field.keyMissing': 'Not set',
+      'dm.field.ca': 'Custom HTTPS CA certificate (optional, PEM)',
+      'dm.field.caHint': 'HTTPS always verifies certificates. Add a trusted CA for self-signed certificates. Enter only a domain or IP in Host.',
       'dm.local': 'Local',
+      'dm.localName': 'Local Surge',
       'dm.localHint': 'Auto-read from the local Surge profile; the key never reaches the browser. Can be activated/tested, not edited or deleted.',
       'dm.form.add': 'Add a Surge instance',
       'dm.form.edit': 'Edit a Surge instance',
@@ -278,7 +385,6 @@ window.__ModuleLoader__.load({
       'dm.totalUp': 'Total up',
       'dm.activeReqs': 'Active reqs',
       'dm.fleet.title': 'Fleet overview (all instances)',
-      'dm.fleet.refresh': 'Refresh all',
       'dm.status.online': 'Online',
       'dm.status.offline': 'Offline',
       'dm.status.noKey': 'No key',
@@ -297,8 +403,9 @@ window.__ModuleLoader__.load({
       'dm.error': 'Operation failed',
       'dm.keyBadge': 'Key',
       'dm.rttUnit': 'ms',
-      'dm.refresh': 'Refresh',
+      'dm.refresh': 'Refresh all',
       'dm.saveErr': 'Name, host and port are required',
+      'dm.testErr': 'Enter a valid host and port before testing',
       /* ---- Settings ---- */
       'st.title': 'Settings',
       'st.subtitle': 'Preferences are stored in this browser; connections and keys stay on the Host',
@@ -339,6 +446,7 @@ window.__ModuleLoader__.load({
       'st.about.type': 'Type',
       'st.about.source': 'Data source',
       'st.reset': 'Reset to defaults',
+      'st.resetDone': 'Preferences reset to defaults',
       'st.note': 'Note: the original product\'s console lock / notification centre / background automation / demo mode and the Surge feature write-switches depend on a separate Node Core, SQLite and scheduler. This plugin is a DSH-native read-only monitor: it does not embed those writes or fabricate data, and instead offers panel-level appearance, refresh and multi-instance management as equivalents.',
       'st.loading': 'Loading…',
       'st.typeValue': 'DSH-native plugin (Host + Client)',
@@ -369,16 +477,14 @@ window.__ModuleLoader__.load({
       phone: 'M7 2h10v20H7zM10 5h4M11 18.5h2',
       tv: 'M3 5h18v12H3zM8 21h8M12 17v4',
       speaker: 'M6 3h4v18H6zM14 8a5 5 0 0 1 0 8M17 5a9 9 0 0 1 0 14',
-      trendUp: 'M3 17l6-6 4 4 8-8M15 7h6v6',
-      trendDown: 'M3 7l6 6 4-4 8 8M15 17h6v-6',
       radio: 'M12 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM8.5 8.5a5 5 0 0 0 0 7M15.5 8.5a5 5 0 0 1 0 7M5.5 5.5a9 9 0 0 0 0 13M18.5 5.5a9 9 0 0 1 0 13',
-      mapPin: 'M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0zM12 12a2 2 0 1 0 0-4 2 2 0 0 0 0 4z',
-      arrowUpRight: 'M7 17 17 7M8 7h9v9',
       settings: 'M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09A1.65 1.65 0 0 0 15 4.6a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9c.14.34.4.62.74.8.3.16.64.25.99.26H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z',
       plus: 'M12 5v14M5 12h14',
       check: 'M20 6 9 17l-5-5',
       trash: 'M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6',
-      sliders: 'M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6'
+      pause: 'M9 5h2v14H9zM13 5h2v14h-2z',
+      play: 'M7 5l12 7-12 7z',
+      chevronDown: 'M6 9l6 6 6-6'
     };
 
     /* ------------------------------------------------------------------ *
@@ -392,6 +498,10 @@ window.__ModuleLoader__.load({
       const digits = v >= 100 ? 0 : v >= 10 ? 1 : 2;
       return { value: v.toFixed(digits), unit: units[i] + (perSec ? '/s' : '') };
     }
+    function fmtBytesStr(bytes, perSec) {
+      const f = fmtBytes(bytes, perSec);
+      return f.value + ' ' + f.unit;
+    }
     function fmtUptime(sec, t) {
       const s = Math.max(0, Math.floor(Number(sec) || 0));
       const d = Math.floor(s / 86400), hh = Math.floor((s % 86400) / 3600), mm = Math.floor((s % 3600) / 60);
@@ -401,6 +511,13 @@ window.__ModuleLoader__.load({
     }
     function pad(n) { return String(n).padStart(2, '0'); }
     function fmtTime(d) { return pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds()); }
+    function fmtEventTime(ev) {
+      if (ev && typeof ev.timestamp === 'number' && isFinite(ev.timestamp)) {
+        const dt = new Date(ev.timestamp);
+        return pad(dt.getHours()) + ':' + pad(dt.getMinutes());
+      }
+      return (ev && ev.time) || '';
+    }
     function toneOf(tone) { return 'sg-tone-' + (tone || 'idle'); }
     function clampInt(v, min, max, fallback) {
       const n = Number(v);
@@ -433,7 +550,7 @@ window.__ModuleLoader__.load({
       for (const e of list) {
         const key = (e.tone || 'idle') + '\u0000' + String(e.text || '');
         if (!map[key]) {
-          map[key] = { time: e.time || '', text: e.text || '', tone: e.tone || 'idle', count: 0, key: key };
+          map[key] = { time: fmtEventTime(e), text: e.text || '', tone: e.tone || 'idle', count: 0, key: key };
           order.push(key);
         }
         map[key].count += 1;
@@ -445,13 +562,25 @@ window.__ModuleLoader__.load({
       const controller = new AbortController();
       const abort = function () { controller.abort(); };
       const { timeoutMs = 15000, signal, ...request } = opts;
+      let target = path;
+      if (typeof target === 'string' && target.startsWith('/')) {
+        let prefix = '';
+        if (typeof window !== 'undefined' && window.__FNOS_GATEWAY_CONFIG__ && typeof window.__FNOS_GATEWAY_CONFIG__.prefix === 'string') {
+          prefix = window.__FNOS_GATEWAY_CONFIG__.prefix.replace(/\/+$/, '');
+        } else if (typeof document !== 'undefined' && document.querySelector) {
+          const baseEl = document.querySelector('base[href]');
+          const href = baseEl && baseEl.getAttribute('href');
+          if (href && href.startsWith('/') && !href.startsWith('//')) prefix = href.replace(/\/+$/, '');
+        }
+        if (prefix && target !== prefix && !target.startsWith(prefix + '/')) target = prefix + target;
+      }
       if (signal) {
         if (signal.aborted) abort();
         else signal.addEventListener('abort', abort, { once: true });
       }
       const timer = setTimeout(abort, timeoutMs);
       try {
-        const response = await fetch(path, { headers: { Accept: 'application/json' }, cache: 'no-store', ...request, signal: controller.signal });
+        const response = await fetch(target, { headers: { Accept: 'application/json' }, cache: 'no-store', ...request, signal: controller.signal });
         let body;
         try { body = await response.json(); }
         catch { throw new Error('Invalid JSON response (HTTP ' + response.status + ')'); }
@@ -519,7 +648,7 @@ window.__ModuleLoader__.load({
     /* Shared live-data store: latest Host snapshot + a rolling REAL sample
      * buffer. Labels carry seconds (HH:MM:SS) for readable x-axis ticks. */
     function createStore() {
-      let state = { status: 'loading', snap: null, error: '', updated: null };
+      let state = { status: 'loading', snap: null, activeConnection: null, error: '', errorCode: '', errorDetail: '', updated: null, fetching: false };
       const down = [], up = [], labels = [];
       const subs = new Set();
       let epoch = 0, flight = null, seriesKey = '', lastSample = null;
@@ -529,6 +658,7 @@ window.__ModuleLoader__.load({
         epoch++;
         if (flight) flight.controller.abort();
         flight = null;
+        if (state.fetching) emit({ ...state, fetching: false });
       };
       const fetchOnce = function () {
         if (flight) return flight.promise;
@@ -536,6 +666,7 @@ window.__ModuleLoader__.load({
         const currentEpoch = epoch;
         const current = { controller: new AbortController(), promise: null };
         flight = current;
+        emit({ ...state, fetching: true });
         current.promise = api('/surge-api/snapshot', { signal: current.controller.signal })
           .then(function (body) {
             if (currentEpoch !== epoch) return;
@@ -552,17 +683,32 @@ window.__ModuleLoader__.load({
                 if (down.length > 144) { down.shift(); up.shift(); labels.shift(); }
                 lastSample = sampledAt;
               }
-              emit({ status: 'ok', snap: snapshot, error: '', updated: when });
+              emit({ status: 'ok', snap: snapshot, activeConnection: snapshot.activeConnection || state.activeConnection, error: '', errorCode: '', errorDetail: '', updated: when, fetching: false });
             } else {
               if (body.code === 'CONNECTION_CHANGED') { clearSamples(); seriesKey = ''; }
-              emit({ status: 'error', snap: body.code === 'CONNECTION_CHANGED' ? null : state.snap, error: body.message || body.code || 'Unknown error', updated: state.updated });
+              const nextActive = body.activeConnection || (body.code === 'CONNECTION_CHANGED' ? null : state.activeConnection);
+              emit({
+                status: 'error',
+                snap: body.code === 'CONNECTION_CHANGED' ? null : state.snap,
+                activeConnection: nextActive,
+                error: body.message || body.code || 'Unknown error',
+                errorCode: body.code || '',
+                errorDetail: body.detail || '',
+                updated: state.updated,
+                fetching: false
+              });
             }
           })
           .catch(function (error) {
             if (currentEpoch !== epoch) return;
-            emit({ status: 'error', snap: state.snap, error: String(error.message || error), updated: state.updated });
+            emit({ status: 'error', snap: state.snap, activeConnection: state.activeConnection, error: String(error.message || error), errorCode: '', errorDetail: '', updated: state.updated, fetching: false });
           })
-          .finally(function () { if (flight === current) flight = null; });
+          .finally(function () {
+            if (flight === current) {
+              flight = null;
+              if (state.fetching) emit({ ...state, fetching: false });
+            }
+          });
         return current.promise;
       };
       return {
@@ -572,7 +718,7 @@ window.__ModuleLoader__.load({
         cancel,
         invalidate: function () {
           cancel(); clearSamples(); seriesKey = '';
-          emit({ status: 'loading', snap: null, error: '', updated: null });
+          emit({ status: 'loading', snap: null, activeConnection: null, error: '', errorCode: '', errorDetail: '', updated: null, fetching: false });
         },
         buffers: function () { return { down, up, labels }; }
       };
@@ -608,24 +754,24 @@ window.__ModuleLoader__.load({
      * unload.
      * ------------------------------------------------------------------ */
     const CSS = `
-.sg-root{box-sizing:border-box;height:100%;min-height:0;overflow-y:auto;padding:28px 32px 40px;background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;font-size:14px;line-height:1.5}
+.sg-root{box-sizing:border-box;height:100%;min-height:0;overflow-y:auto;padding:28px 32px 40px;background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;font-size:14px;line-height:1.5;--sg-primary-fg:var(--dsw-alias-bg-base)}
 .sg-root *{box-sizing:border-box}
-.sg-root button,.sg-root input,.sg-root select{font-family:inherit}
+.sg-root button,.sg-root input,.sg-root select,.sg-root textarea{font-family:inherit}
 .sg-root::-webkit-scrollbar{width:9px}
 .sg-root::-webkit-scrollbar-thumb{background:var(--dsw-alias-border-l2);border-radius:9px;border:2px solid var(--dsw-alias-bg-base)}
 .sg-mono{font-family:SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-variant-numeric:tabular-nums}
 .sg-num{font-variant-numeric:tabular-nums;letter-spacing:-.01em}
 .sg-sub{font-size:12px;color:var(--dsw-alias-label-secondary)}
 .sg-ic{display:block;flex:none}
-.sg-root.sg-force-light{--dsw-alias-bg-base:#f5f5f7;--dsw-alias-bg-layer-1:#ffffff;--dsw-alias-bg-layer-2:#ececf0;--dsw-alias-bg-overlay:#ffffff;--dsw-alias-border-l1:#e2e2e7;--dsw-alias-border-l2:#c9c9d0;--dsw-alias-brand-primary:#d4623b;--dsw-alias-label-primary:#1c1c1e;--dsw-alias-label-secondary:#6b6b72;--dsw-alias-state-error-primary:#d63a3f;--dsw-alias-state-idle-primary:#8e8e95;--dsw-alias-state-success-primary:#1f9d63;--dsw-alias-state-warn-primary:#c07d0a}
-.sg-root.sg-force-dark{--dsw-alias-bg-base:#1a1a1c;--dsw-alias-bg-layer-1:#232326;--dsw-alias-bg-layer-2:#2c2c30;--dsw-alias-bg-overlay:#232326;--dsw-alias-border-l1:#343438;--dsw-alias-border-l2:#48484e;--dsw-alias-brand-primary:#e0684a;--dsw-alias-label-primary:#f2f2f4;--dsw-alias-label-secondary:#9a9aa2;--dsw-alias-state-error-primary:#ef5f63;--dsw-alias-state-idle-primary:#8e8e95;--dsw-alias-state-success-primary:#4ac97e;--dsw-alias-state-warn-primary:#e6a23c}
+.sg-root.sg-force-light{--dsw-alias-bg-base:#f5f5f7;--dsw-alias-bg-layer-1:#ffffff;--dsw-alias-bg-layer-2:#ececf0;--dsw-alias-bg-overlay:#ffffff;--dsw-alias-border-l1:#e2e2e7;--dsw-alias-border-l2:#c9c9d0;--dsw-alias-brand-primary:#be4d27;--dsw-alias-label-primary:#1c1c1e;--dsw-alias-label-secondary:#63636a;--dsw-alias-state-error-primary:#c93338;--dsw-alias-state-idle-primary:#76767e;--dsw-alias-state-success-primary:#1a8a56;--dsw-alias-state-warn-primary:#a66a06;--sg-primary-fg:#ffffff}
+.sg-root.sg-force-dark{--dsw-alias-bg-base:#1a1a1c;--dsw-alias-bg-layer-1:#232326;--dsw-alias-bg-layer-2:#2c2c30;--dsw-alias-bg-overlay:#232326;--dsw-alias-border-l1:#343438;--dsw-alias-border-l2:#48484e;--dsw-alias-brand-primary:#e0684a;--dsw-alias-label-primary:#f2f2f4;--dsw-alias-label-secondary:#9a9aa2;--dsw-alias-state-error-primary:#ef5f63;--dsw-alias-state-idle-primary:#8e8e95;--dsw-alias-state-success-primary:#4ac97e;--dsw-alias-state-warn-primary:#e6a23c;--sg-primary-fg:#1a1a1c}
 
 .sg-header{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
 .sg-brand{width:44px;height:44px;border-radius:13px;display:flex;align-items:center;justify-content:center;color:var(--dsw-alias-brand-primary);background:var(--dsw-alias-bg-layer-1);border:1px solid var(--dsw-alias-border-l1)}
 .sg-head-txt{flex:1;min-width:180px}
 .sg-title{margin:0;font-size:24px;line-height:1.2;font-weight:650;letter-spacing:-.02em}
 .sg-subtitle{margin:3px 0 0;font-size:13px;color:var(--dsw-alias-label-secondary)}
-.sg-head-right{display:flex;align-items:center;gap:10px;margin-left:auto}
+.sg-head-right{display:flex;align-items:center;gap:8px;margin-left:auto}
 .sg-badge{display:inline-flex;align-items:center;gap:7px;padding:6px 11px;border-radius:999px;font-size:12px;font-weight:600;color:var(--dsw-alias-label-secondary);background:var(--dsw-alias-bg-layer-2);border:1px solid var(--dsw-alias-border-l1)}
 .sg-badge.is-live{color:var(--dsw-alias-state-success-primary)}
 .sg-badge-dot{width:7px;height:7px;border-radius:50%;background:var(--dsw-alias-label-secondary)}
@@ -637,19 +783,31 @@ window.__ModuleLoader__.load({
 .sg-root :focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:2px}
 .sg-icon-btn{width:34px;height:34px;display:inline-flex;align-items:center;justify-content:center;border-radius:9px;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-secondary);cursor:pointer;transition:color .15s,border-color .15s,transform .15s}
 .sg-icon-btn:hover{color:var(--dsw-alias-brand-primary);border-color:var(--dsw-alias-border-l2)}
+.sg-icon-btn.is-active{color:var(--dsw-alias-state-warn-primary);border-color:var(--dsw-alias-state-warn-primary)}
 .sg-icon-btn:active{transform:scale(.93)}
 @keyframes sgSpin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
-.sg-spin{animation:sgSpin .6s ease}
+.sg-spin{animation:sgSpin .85s linear infinite}
 
-/* Tab bar */
+/* Tab bar & active-connection switcher */
 .sg-tabbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:18px 0 20px}
 .sg-tabs{display:flex;gap:4px;padding:4px;border-radius:11px;background:var(--dsw-alias-bg-layer-1);border:1px solid var(--dsw-alias-border-l1)}
 .sg-tab{display:inline-flex;align-items:center;gap:7px;padding:7px 15px;border-radius:8px;border:0;background:transparent;color:var(--dsw-alias-label-secondary);font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap}
 .sg-tab:hover{color:var(--dsw-alias-label-primary)}
 .sg-tab.is-active{background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-primary)}
 .sg-tabbar-sp{flex:1}
-.sg-active-chip{display:inline-flex;align-items:center;gap:7px;padding:6px 11px;border-radius:999px;font-size:12px;font-weight:600;background:var(--dsw-alias-bg-layer-1);border:1px solid var(--dsw-alias-border-l1);color:var(--dsw-alias-label-secondary)}
+.sg-switcher{position:relative}
+.sg-active-chip{display:inline-flex;align-items:center;gap:7px;padding:6px 11px;border-radius:999px;font-size:12px;font-weight:600;background:var(--dsw-alias-bg-layer-1);border:1px solid var(--dsw-alias-border-l1);color:var(--dsw-alias-label-secondary);cursor:pointer;transition:border-color .15s,color .15s}
+.sg-active-chip:hover{border-color:var(--dsw-alias-brand-primary);color:var(--dsw-alias-label-primary)}
 .sg-active-chip .sg-ic{color:var(--dsw-alias-brand-primary)}
+.sg-active-chip .sg-chev{color:var(--dsw-alias-label-secondary);margin-left:-2px}
+.sg-popover{position:absolute;right:0;top:calc(100% + 6px);min-width:220px;max-width:300px;padding:6px;border-radius:12px;background:var(--dsw-alias-bg-overlay,var(--dsw-alias-bg-layer-1));border:1px solid var(--dsw-alias-border-l2);box-shadow:0 8px 24px rgba(0,0,0,.18);z-index:30;display:flex;flex-direction:column;gap:2px}
+.sg-pop-item{display:flex;align-items:center;gap:8px;width:100%;text-align:left;padding:7px 9px;border-radius:8px;border:0;background:transparent;color:var(--dsw-alias-label-primary);font-size:12.5px;font-weight:550;cursor:pointer}
+.sg-pop-item:hover{background:var(--dsw-alias-bg-layer-2)}
+.sg-pop-item.is-active{color:var(--dsw-alias-brand-primary);font-weight:650}
+.sg-pop-name{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sg-pop-host{font-size:11px;color:var(--dsw-alias-label-secondary);flex:none}
+.sg-pop-div{height:1px;background:var(--dsw-alias-border-l1);margin:4px 2px}
+.sg-pop-foot{color:var(--dsw-alias-label-secondary);font-size:12px}
 
 .sg-livebar{display:flex;align-items:center;gap:9px;padding:10px 14px;border-radius:11px;background:var(--dsw-alias-bg-layer-1);border:1px solid var(--dsw-alias-border-l1);font-size:12px;flex-wrap:wrap}
 .sg-dot-live{width:8px;height:8px;border-radius:50%;background:var(--dsw-alias-state-warn-primary)}
@@ -671,11 +829,13 @@ window.__ModuleLoader__.load({
 .sg-metric-head{display:flex;align-items:center;gap:9px}
 .sg-ico-tile{width:28px;height:28px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;background:var(--dsw-alias-bg-layer-2)}
 .sg-metric-label{font-size:12px;color:var(--dsw-alias-label-secondary);font-weight:500}
-.sg-metric-row{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.sg-metric-row{display:flex;align-items:baseline;justify-content:space-between;gap:8px;flex-wrap:wrap}
 .sg-metric-num{font-size:26px;font-weight:650;line-height:1;white-space:nowrap}
 .sg-unit{font-size:12px;color:var(--dsw-alias-label-secondary);margin-left:5px;font-weight:500}
 .sg-spark{width:100%;height:28px;display:block;margin-top:2px}
-.sg-spark-ph{height:28px}
+.sg-spark-ph{height:28px;display:flex;align-items:flex-end}
+.sg-metric-link{border:0;background:transparent;padding:0;color:var(--dsw-alias-brand-primary);font-size:11.5px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:4px}
+.sg-metric-link:hover{text-decoration:underline}
 .sg-spark-line{fill:none;stroke:currentColor;stroke-width:1.6;vector-effect:non-scaling-stroke;stroke-linejoin:round;stroke-linecap:round}
 .sg-spark-area{fill:currentColor;opacity:.12}
 
@@ -694,7 +854,10 @@ window.__ModuleLoader__.load({
 .sg-legend-btn.is-off{opacity:.38;text-decoration:line-through}
 .sg-legend-dot{width:8px;height:8px;border-radius:50%;background:currentColor}
 
-.sg-chart{width:100%;overflow:hidden}
+.sg-chart{width:100%;overflow:visible}
+.sg-chart-wrap{display:flex;align-items:stretch;gap:8px;width:100%}
+.sg-yaxis{display:flex;flex-direction:column;justify-content:space-between;padding:8px 0 6px;font-size:10.5px;color:var(--dsw-alias-label-secondary);text-align:right;white-space:nowrap;flex:none;min-width:56px}
+.sg-plot{position:relative;flex:1;min-width:0;cursor:crosshair}
 .sg-chart-svg{width:100%;height:200px;display:block;overflow:hidden}
 .sg-grid{stroke:var(--dsw-alias-border-l1);stroke-width:1;vector-effect:non-scaling-stroke}
 .sg-area-down{fill:var(--dsw-alias-brand-primary);opacity:.14}
@@ -702,9 +865,14 @@ window.__ModuleLoader__.load({
 .sg-line{fill:none;stroke-width:2;vector-effect:non-scaling-stroke;stroke-linejoin:round;stroke-linecap:round}
 .sg-line-down{stroke:var(--dsw-alias-brand-primary)}
 .sg-line-up{stroke:var(--dsw-alias-state-success-primary)}
-/* FIX 1: a handful of evenly-spaced ticks, clipped to the container. No more
-   one-span-per-sample pile-up; odd ticks hide on narrow screens. */
-.sg-xaxis{display:flex;justify-content:space-between;gap:6px;margin-top:8px;font-size:11px;color:var(--dsw-alias-label-secondary);overflow:hidden;width:100%}
+.sg-crosshair{position:absolute;top:12px;bottom:8px;width:1px;background:var(--dsw-alias-border-l2);pointer-events:none}
+.sg-hover-dot{position:absolute;width:8px;height:8px;border-radius:50%;border:2px solid var(--dsw-alias-bg-layer-1);transform:translate(-50%,-50%);pointer-events:none}
+.sg-hover-dot.is-down{background:var(--dsw-alias-brand-primary)}
+.sg-hover-dot.is-up{background:var(--dsw-alias-state-success-primary)}
+.sg-tooltip{position:absolute;top:8px;padding:7px 10px;border-radius:9px;background:var(--dsw-alias-bg-overlay,var(--dsw-alias-bg-layer-1));border:1px solid var(--dsw-alias-border-l2);box-shadow:0 4px 14px rgba(0,0,0,.16);font-size:11.5px;pointer-events:none;white-space:nowrap;z-index:10;display:flex;flex-direction:column;gap:3px}
+.sg-tip-row{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.sg-tip-lbl{display:inline-flex;align-items:center;gap:5px;color:var(--dsw-alias-label-secondary)}
+.sg-xaxis{display:flex;justify-content:space-between;gap:6px;margin-top:8px;padding-left:64px;font-size:11px;color:var(--dsw-alias-label-secondary);overflow:hidden;width:100%}
 .sg-xaxis .sg-tick{white-space:nowrap;flex:none}
 .sg-chart-foot{display:flex;justify-content:space-between;gap:12px;margin-top:10px;font-size:11px;color:var(--dsw-alias-label-secondary)}
 .sg-empty{height:200px;display:flex;align-items:center;justify-content:center;color:var(--dsw-alias-label-secondary);font-size:13px;text-align:center;padding:0 12px}
@@ -713,14 +881,18 @@ window.__ModuleLoader__.load({
 .sg-dev{display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:9px 10px;border-radius:10px;border:1px solid transparent;background:transparent;color:inherit;cursor:pointer;transition:background .15s,border-color .15s}
 .sg-dev:hover{background:var(--dsw-alias-bg-layer-2)}
 .sg-dev.is-sel{background:var(--dsw-alias-bg-layer-2);border-color:var(--dsw-alias-border-l1)}
-.sg-dev-dot{width:7px;height:7px;border-radius:50%;background:var(--dsw-alias-state-success-primary);flex:none}
+.sg-dev-dot{width:7px;height:7px;border-radius:50%;background:var(--dsw-alias-state-idle-primary);flex:none}
+.sg-dev-dot.is-hot{background:var(--dsw-alias-state-success-primary)}
 .sg-dev-ico{color:var(--dsw-alias-label-secondary);flex:none}
 .sg-dev-main{display:flex;flex-direction:column;min-width:0;flex:1}
 .sg-dev-name{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .sg-dev-sub{font-size:11px;color:var(--dsw-alias-label-secondary)}
+.sg-dev-right{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex:none}
+.sg-dev-speed{font-size:11px;color:var(--dsw-alias-label-secondary);white-space:nowrap}
+.sg-dev-speed.is-hot{color:var(--dsw-alias-label-primary);font-weight:600}
 .sg-dev-bar{width:54px;height:5px;border-radius:4px;background:var(--dsw-alias-bg-layer-2);overflow:hidden;flex:none}
 .sg-dev-bar-fill{display:block;height:100%;border-radius:4px;background:var(--dsw-alias-brand-primary)}
-.sg-dev-foot{margin-top:12px;padding-top:11px;border-top:1px solid var(--dsw-alias-border-l1);display:flex;justify-content:space-between;gap:10px;font-size:12px}
+.sg-dev-foot{margin-top:12px;padding-top:11px;border-top:1px solid var(--dsw-alias-border-l1);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px 12px;font-size:12px}
 .sg-dev-foot b{font-weight:650}
 
 .sg-kv{display:flex;flex-direction:column;gap:2px}
@@ -738,13 +910,16 @@ window.__ModuleLoader__.load({
 .sg-track{height:6px;border-radius:4px;background:var(--dsw-alias-bg-layer-2);overflow:hidden}
 .sg-track-fill{display:block;height:100%;border-radius:4px;background:currentColor}
 
-/* FIX 2: clean, single-line, de-duplicated event rows. No fragmented
-   two-line wraps, no per-row connector line; full text on hover via title. */
+/* De-duplicated event rows; click to expand full message */
 .sg-timeline{display:flex;flex-direction:column}
-.sg-event{display:flex;align-items:center;gap:10px;padding:10px 2px;font-size:12.5px;border-bottom:1px solid var(--dsw-alias-border-l1)}
+.sg-event{display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:10px 4px;font-size:12.5px;border:0;border-bottom:1px solid var(--dsw-alias-border-l1);background:transparent;color:inherit;cursor:pointer;border-radius:6px;transition:background .12s}
+.sg-event:hover{background:var(--dsw-alias-bg-layer-2)}
 .sg-event:last-child{border-bottom:0}
+.sg-event.is-expanded{align-items:flex-start}
+.sg-event.is-expanded .sg-event-dot{margin-top:5px}
 .sg-event-dot{width:8px;height:8px;border-radius:50%;background:currentColor;flex:none}
 .sg-event-txt{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--dsw-alias-label-primary)}
+.sg-event.is-expanded .sg-event-txt{white-space:normal;overflow:visible;word-break:break-word}
 .sg-event-count{flex:none;font-size:11px;font-weight:700;padding:1px 7px;border-radius:999px;background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-secondary)}
 .sg-event-time{flex:none;color:var(--dsw-alias-label-secondary);font-size:11px}
 
@@ -752,13 +927,16 @@ window.__ModuleLoader__.load({
 .sg-note .sg-ic{color:var(--dsw-alias-state-idle-primary);margin-top:1px}
 .sg-callout{display:flex;align-items:flex-start;gap:9px;padding:12px 14px;border-radius:11px;background:var(--dsw-alias-bg-layer-2);border:1px solid var(--dsw-alias-border-l1);font-size:12px;color:var(--dsw-alias-label-secondary);line-height:1.6}
 .sg-callout .sg-ic{color:var(--dsw-alias-state-idle-primary);margin-top:1px;flex:none}
-.sg-notice{margin-bottom:14px;padding:10px 13px;border-radius:10px;font-size:12px;background:var(--dsw-alias-bg-layer-2);border:1px solid var(--dsw-alias-border-l1);color:var(--dsw-alias-label-primary)}
-.sg-stack>.sg-notice{margin-bottom:0}
+.sg-notice{margin-top:12px;padding:10px 13px;border-radius:10px;font-size:12px;background:var(--dsw-alias-bg-layer-2);border:1px solid var(--dsw-alias-border-l1);color:var(--dsw-alias-label-primary);overflow-wrap:anywhere}
+.sg-notice.is-ok{border-color:var(--dsw-alias-state-success-primary);color:var(--dsw-alias-state-success-primary)}
+.sg-notice.is-danger{border-color:var(--dsw-alias-state-error-primary);color:var(--dsw-alias-state-error-primary)}
+.sg-notice.is-warn{border-color:var(--dsw-alias-state-warn-primary);color:var(--dsw-alias-state-warn-primary)}
+.sg-stack>.sg-notice{margin-top:0}
 
 /* Shared controls */
 .sg-btn{display:inline-flex;align-items:center;gap:7px;padding:8px 14px;border-radius:9px;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-primary);font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap}
 .sg-btn:hover{border-color:var(--dsw-alias-brand-primary)}
-.sg-btn.primary{background:var(--dsw-alias-brand-primary);border-color:var(--dsw-alias-brand-primary);color:var(--dsw-alias-bg-base)}
+.sg-btn.primary{background:var(--dsw-alias-brand-primary);border-color:var(--dsw-alias-brand-primary);color:var(--sg-primary-fg)}
 .sg-btn.danger{color:var(--dsw-alias-state-error-primary);border-color:var(--dsw-alias-state-error-primary)}
 .sg-btn.sm{padding:5px 10px;font-size:12px}
 .sg-btn:disabled{opacity:.5;cursor:not-allowed}
@@ -768,6 +946,7 @@ window.__ModuleLoader__.load({
 .sg-field{display:flex;flex-direction:column;gap:5px;min-width:0}
 .sg-field label{font-size:12px;color:var(--dsw-alias-label-secondary);font-weight:600}
 .sg-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.sg-form-ca{margin-top:12px}
 .sg-form-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
 .sg-seg{display:inline-flex;gap:3px;padding:3px;border-radius:10px;background:var(--dsw-alias-bg-layer-2);border:1px solid var(--dsw-alias-border-l1);flex-wrap:wrap}
 .sg-seg button{padding:6px 14px;border-radius:7px;border:0;background:transparent;color:var(--dsw-alias-label-secondary);font-size:13px;font-weight:600;cursor:pointer}
@@ -780,7 +959,6 @@ window.__ModuleLoader__.load({
 .sg-set-row:last-child{border-bottom:0}
 .sg-set-label{font-size:13px;font-weight:600}
 .sg-set-desc{font-size:11.5px;color:var(--dsw-alias-label-secondary);margin-top:2px;font-weight:400;max-width:460px}
-.sg-section{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--dsw-alias-label-secondary);margin:0 0 6px}
 .sg-stack{display:flex;flex-direction:column;gap:18px}
 
 /* Devices */
@@ -800,15 +978,18 @@ window.__ModuleLoader__.load({
 .sg-conn-meta-item{display:flex;align-items:center;gap:6px;color:var(--dsw-alias-label-secondary)}
 .sg-conn-meta-item b{color:var(--dsw-alias-label-primary);font-weight:600}
 .sg-conn-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:14px}
-.sg-diag-tbl{width:100%;border-collapse:collapse;font-size:12px}
+.sg-table-wrap{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.sg-diag-tbl{width:100%;border-collapse:collapse;font-size:12px;min-width:460px}
 .sg-diag-tbl th{text-align:left;font-weight:600;color:var(--dsw-alias-label-secondary);padding:7px 8px;border-bottom:1px solid var(--dsw-alias-border-l1);white-space:nowrap}
 .sg-diag-tbl td{padding:7px 8px;border-bottom:1px solid var(--dsw-alias-border-l1)}
 .sg-diag-tbl tr:last-child td{border-bottom:0}
+.sg-req-target{max-width:340px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .sg-pill-ok{color:var(--dsw-alias-state-success-primary);font-weight:650}
 .sg-pill-fail{color:var(--dsw-alias-state-error-primary);font-weight:650}
+.sg-pill-warn{color:var(--dsw-alias-state-warn-primary);font-weight:650}
 
 @media(max-width:1120px){.sg-metrics{grid-template-columns:repeat(3,minmax(0,1fr))}.sg-main-grid{grid-template-columns:1fr}.sg-bottom-grid{grid-template-columns:1fr}.sg-strip{grid-template-columns:repeat(3,minmax(0,1fr))}}
-@media(max-width:720px){.sg-root{padding:20px 16px 32px}.sg-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.sg-title{font-size:20px}.sg-xaxis .sg-tick.sg-tick-odd{display:none}.sg-conn-list{grid-template-columns:1fr}.sg-strip{grid-template-columns:repeat(2,minmax(0,1fr))}.sg-form-grid{grid-template-columns:1fr}}
+@media(max-width:720px){.sg-root{padding:20px 16px 32px}.sg-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.sg-title{font-size:20px}.sg-yaxis{min-width:46px;font-size:10px}.sg-xaxis{padding-left:54px}.sg-xaxis .sg-tick.sg-tick-odd{display:none}.sg-conn-list{grid-template-columns:1fr}.sg-strip{grid-template-columns:repeat(2,minmax(0,1fr))}.sg-form-grid{grid-template-columns:1fr}}
 @media(prefers-reduced-motion:reduce){.sg-root *{animation:none!important;transition:none!important}}
 `;
 
@@ -836,6 +1017,32 @@ window.__ModuleLoader__.load({
         }, 'surge-panel: cancel requests on unload');
 
         /* ---- render helpers (capture t / ctx via closure) ---- */
+        function connName(c) {
+          if (!c) return '';
+          return (c.local || c.isLocal || c.id === 'local') ? t('dm.localName') : c.name;
+        }
+        function tEndpoint(name) {
+          const k = 'ep.' + name;
+          const v = t(k);
+          return v === k ? name : v;
+        }
+        function tCode(obj, fallbackKey) {
+          if (!obj) return fallbackKey ? t(fallbackKey) : '';
+          const code = obj.code;
+          if (code === 'PARTIAL_DATA' && Array.isArray(obj.missing) && obj.missing.length) {
+            return obj.missing.map(function (ep) { return tEndpoint(ep) + ' · ' + t('status.unavailable'); }).join(t('sep'));
+          }
+          if (code === 'TEST_OK') return t('dm.test.ok');
+          if (code === 'TEST_FAILED') return obj.detail ? t('dm.test.fail') + ' · ' + obj.detail : t('dm.test.fail');
+          if (code) {
+            const k = 'err.' + code;
+            const localized = t(k);
+            if (localized && localized !== k) {
+              return obj.detail ? localized + ' · ' + obj.detail : localized;
+            }
+          }
+          return obj.message || (fallbackKey ? t(fallbackKey) : '');
+        }
         function I(name, size, cls, key) {
           return h('svg', {
             key: key, className: 'sg-ic' + (cls ? ' ' + cls : ''),
@@ -854,7 +1061,9 @@ window.__ModuleLoader__.load({
             h('path', { d: d + ' L 100 28 L 0 28 Z', className: 'sg-spark-area' }),
             h('path', { d: d, className: 'sg-spark-line' }));
         }
-        function AreaChart(chart, showDown, showUp) {
+        function AreaChart(props) {
+          const chart = props.chart, showDown = props.showDown, showUp = props.showUp;
+          const [hoverIdx, setHoverIdx] = useState(-1);
           const W = 760, H = 220, TOP = 14, BOT = 10;
           const n = chart.down.length;
           const MAX = Math.max(1, chart.max || 1) * 1.15;
@@ -868,20 +1077,48 @@ window.__ModuleLoader__.load({
             const y = H - BOT - f * (H - TOP - BOT);
             return h('line', { key: 'g' + i, x1: 0, y1: y, x2: W, y2: y, className: 'sg-grid' });
           });
-          const half = function (v) { return v >= 1e6 ? (v / 1e6).toFixed(1) + ' MB/s' : v >= 1e3 ? (v / 1e3).toFixed(0) + ' KB/s' : Math.round(v) + ' B/s'; };
+          const onMove = function (e) {
+            if (n < 2) return;
+            const rect = e.currentTarget.getBoundingClientRect();
+            if (!rect.width) return;
+            const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+            setHoverIdx(Math.round(ratio * (n - 1)));
+          };
+          const hi = hoverIdx >= 0 && hoverIdx < n ? hoverIdx : -1;
+          const hiPct = hi >= 0 && n > 1 ? (hi / (n - 1)) * 100 : 0;
+          const tipStyle = hiPct > 62
+            ? { right: (100 - hiPct) + '%', marginRight: '10px' }
+            : { left: hiPct + '%', marginLeft: '10px' };
           return h('div', { className: 'sg-chart' },
-            h('svg', { viewBox: '0 0 ' + W + ' ' + H, preserveAspectRatio: 'none', className: 'sg-chart-svg', 'aria-hidden': true },
-              grids,
-              showDown ? h('path', { key: 'ad', d: area(chart.down), className: 'sg-area-down' }) : null,
-              showUp ? h('path', { key: 'au', d: area(chart.up), className: 'sg-area-up' }) : null,
-              showDown ? h('path', { key: 'ld', d: line(chart.down), className: 'sg-line sg-line-down' }) : null,
-              showUp ? h('path', { key: 'lu', d: line(chart.up), className: 'sg-line sg-line-up' }) : null),
+            h('div', { className: 'sg-chart-wrap' },
+              h('div', { className: 'sg-yaxis sg-mono', 'aria-hidden': true },
+                h('span', null, fmtBytesStr(MAX, true)),
+                h('span', null, fmtBytesStr(MAX / 2, true)),
+                h('span', null, '0 B/s')),
+              h('div', { className: 'sg-plot', onMouseMove: onMove, onMouseLeave: function () { setHoverIdx(-1); } },
+                h('svg', { viewBox: '0 0 ' + W + ' ' + H, preserveAspectRatio: 'none', className: 'sg-chart-svg', 'aria-hidden': true },
+                  grids,
+                  showDown ? h('path', { key: 'ad', d: area(chart.down), className: 'sg-area-down' }) : null,
+                  showUp ? h('path', { key: 'au', d: area(chart.up), className: 'sg-area-up' }) : null,
+                  showDown ? h('path', { key: 'ld', d: line(chart.down), className: 'sg-line sg-line-down' }) : null,
+                  showUp ? h('path', { key: 'lu', d: line(chart.up), className: 'sg-line sg-line-up' }) : null),
+                hi >= 0 ? h('div', { className: 'sg-crosshair', style: { left: hiPct + '%' } }) : null,
+                hi >= 0 && showDown ? h('div', { className: 'sg-hover-dot is-down', style: { left: hiPct + '%', top: (Y(chart.down[hi]) / H * 100) + '%' } }) : null,
+                hi >= 0 && showUp ? h('div', { className: 'sg-hover-dot is-up', style: { left: hiPct + '%', top: (Y(chart.up[hi]) / H * 100) + '%' } }) : null,
+                hi >= 0 ? h('div', { className: 'sg-tooltip sg-mono', style: tipStyle },
+                  h('div', { className: 'sg-sub' }, chart.labels[hi] || ''),
+                  showDown ? h('div', { className: 'sg-tip-row' },
+                    h('span', { className: 'sg-tip-lbl sg-tone-brand' }, h('span', { className: 'sg-legend-dot' }), t('chart.down')),
+                    h('b', null, fmtBytesStr(chart.down[hi], true))) : null,
+                  showUp ? h('div', { className: 'sg-tip-row' },
+                    h('span', { className: 'sg-tip-lbl sg-tone-success' }, h('span', { className: 'sg-legend-dot' }), t('chart.up')),
+                    h('b', null, fmtBytesStr(chart.up[hi], true))) : null) : null)),
             h('div', { className: 'sg-xaxis' }, tickLabels(chart.labels, 6).map(function (tk, i) {
               return h('span', { key: i, className: 'sg-mono sg-tick' + (tk.odd ? ' sg-tick-odd' : '') }, tk.label);
             })),
             h('div', { className: 'sg-chart-foot' },
               h('span', { className: 'sg-sub' }, t('chart.sampled')),
-              h('span', { className: 'sg-mono sg-sub' }, t('chart.peak') + ' ' + half(chart.max || 0))));
+              h('span', { className: 'sg-mono sg-sub' }, t('chart.peak') + ' ' + fmtBytesStr(chart.max || 0, true))));
         }
         function MetricCard(o) {
           return h('div', { className: 'sg-card sg-metric' },
@@ -893,7 +1130,9 @@ window.__ModuleLoader__.load({
                 h('span', { className: 'sg-num sg-metric-num' }, o.value),
                 o.unit ? h('span', { className: 'sg-unit' }, o.unit) : null),
               o.sub ? h('span', { className: 'sg-sub' }, o.sub) : null),
-            o.spark && o.spark.length > 1 ? Sparkline(o.spark, o.tone) : h('div', { className: 'sg-spark-ph' }));
+            o.spark && o.spark.length > 1
+              ? Sparkline(o.spark, o.tone)
+              : h('div', { className: 'sg-spark-ph' }, o.foot || null));
         }
         function Legend(items) {
           return h('div', { className: 'sg-legend' }, items.map(function (it) {
@@ -917,39 +1156,44 @@ window.__ModuleLoader__.load({
         }
         function Btn(o) {
           return h('button', {
-            type: 'button',
+            type: o.submit ? 'submit' : 'button',
             className: 'sg-btn' + (o.primary ? ' primary' : '') + (o.danger ? ' danger' : '') + (o.sm ? ' sm' : ''),
             disabled: !!o.disabled, onClick: o.onClick, title: o.title || undefined
           }, o.icon ? I(o.icon, 14) : null, o.label);
         }
-        function Seg(value, opts, onChange) {
-          return h('div', { className: 'sg-seg' }, opts.map(function (o) {
-            return h('button', { key: o.v, type: 'button', className: value === o.v ? 'is-active' : '', onClick: function () { onChange(o.v); } }, t(o.l));
+        function Seg(value, opts, onChange, ariaLabel) {
+          return h('div', { className: 'sg-seg', role: 'group', 'aria-label': ariaLabel || undefined }, opts.map(function (o) {
+            const active = value === o.v;
+            return h('button', {
+              key: o.v, type: 'button',
+              className: active ? 'is-active' : '',
+              'aria-pressed': active ? 'true' : 'false',
+              onClick: function () { onChange(o.v); }
+            }, t(o.l));
           }));
         }
-        function Switch(on, onChange) {
+        function Switch(on, onChange, labelledBy) {
           return h('button', {
-            type: 'button', role: 'switch', 'aria-checked': on ? 'true' : 'false',
+            type: 'button', role: 'switch',
+            'aria-checked': on ? 'true' : 'false',
+            'aria-labelledby': labelledBy || undefined,
             className: 'sg-switch' + (on ? ' is-on' : ''), onClick: function () { onChange(!on); }
           }, h('i', null));
         }
-        function Select(value, opts, onChange) {
+        function Select(value, opts, onChange, labelledBy) {
           return h('select', {
             className: 'sg-select sg-select-sm', value: String(value),
+            'aria-labelledby': labelledBy || undefined,
             onChange: function (e) { onChange(e.target.value); }
           }, opts.map(function (o) { return h('option', { key: String(o.v), value: String(o.v) }, o.l); }));
         }
-        function SetRow(labelKey, descKey, control) {
+        function SetRow(labelKey, descKey, renderControl) {
+          const labelId = 'sg-set-' + labelKey.replace(/[^a-zA-Z0-9_-]/g, '-');
           return h('div', { className: 'sg-set-row' },
             h('div', null,
-              h('div', { className: 'sg-set-label' }, t(labelKey)),
+              h('div', { className: 'sg-set-label', id: labelId }, t(labelKey)),
               descKey ? h('div', { className: 'sg-set-desc' }, t(descKey)) : null),
-            control);
-        }
-        function SectionCard(title, right, children) {
-          return h('div', { className: 'sg-card' },
-            h('div', { className: 'sg-card-h' }, h('h2', { className: 'sg-card-t' }, title), right || null),
-            children);
+            typeof renderControl === 'function' ? renderControl(labelId) : renderControl);
         }
 
         /* ---- Sidebar icon: owner props are { size, active } ---- */
@@ -968,10 +1212,13 @@ window.__ModuleLoader__.load({
         }
 
         /* ================================================================ *
-         * OVERVIEW — the original dashboard, with both display fixes.
+         * OVERVIEW — live dashboard with interactive chart, sorted devices,
+         * expandable events and collapsible recent/failed request details.
          * ================================================================ */
         function Overview(props) {
           const ui = props.ui;
+          const [expandedEvents, setExpandedEvents] = useState({});
+          const [showRequests, setShowRequests] = useState(false);
           const state = store.get();
           const p = prefs.get();
           const s = state.snap;
@@ -985,51 +1232,98 @@ window.__ModuleLoader__.load({
             if (!failed.length) return null;
             return h('div', { className: 'sg-sub', role: 'status', style: { padding: '8px 14px' } }, failed.map(function (name) {
               const endpoint = s.endpoints[name];
-              return name + ' · ' + (endpoint.stale ? t('status.stale') + ' ' + fmtTime(new Date(endpoint.updatedAt)) : t('status.unavailable'));
-            }).join('；'));
+              return tEndpoint(name) + ' · ' + (endpoint.stale ? t('status.stale') + ' ' + fmtTime(new Date(endpoint.updatedAt)) : t('status.unavailable'));
+            }).join(t('sep')));
           };
           const buf = store.buffers();
           const N = p.samplePoints;
           const downArr = buf.down.slice(-N);
           const upArr = buf.up.slice(-N);
           const labArr = buf.labels.slice(-N);
-          const maxV = Math.max.apply(null, [1].concat(downArr, upArr));
+          const visibleVals = [1];
+          if (ui.showDown) visibleVals.push.apply(visibleVals, downArr);
+          if (ui.showUp) visibleVals.push.apply(visibleVals, upArr);
+          const maxV = Math.max.apply(null, visibleVals);
 
+          const recentReqs = (s && s.recentRequests) || [];
           const d = s ? fmtBytes(s.down, true) : { value: '—', unit: '' };
           const u = s ? fmtBytes(s.up, true) : { value: '—', unit: '' };
           const sess = s ? fmtBytes(s.session, false) : { value: '—', unit: '' };
+          const reqFoot = available('requests') && recentReqs.length
+            ? h('button', {
+                type: 'button', className: 'sg-metric-link',
+                'aria-expanded': showRequests ? 'true' : 'false',
+                onClick: function () { setShowRequests(function (v) { return !v; }); }
+              }, t(showRequests ? 'requests.hide' : 'requests.show'))
+            : null;
           const metrics = [
             { label: 'metrics.download', value: d.value, unit: d.unit, icon: 'download', tone: 'sg-tone-brand', spark: downArr },
             { label: 'metrics.upload', value: u.value, unit: u.unit, icon: 'upload', tone: 'sg-tone-success', spark: upArr },
             { label: 'metrics.session', value: sess.value, unit: sess.unit, icon: 'activity', tone: 'sg-tone-idle', spark: [] },
             { label: 'metrics.uptime', value: s && s.uptime != null ? fmtUptime(s.uptime, t) : '—', unit: '', icon: 'clock', tone: 'sg-tone-warn', spark: [] },
-            { label: 'metrics.conns', value: count('requests', s && s.conns), unit: '', icon: 'link', tone: 'sg-tone-brand', sub: available('requests') ? (s.connsFailed + ' ' + t('metrics.failed')) : '', spark: [] }
+            { label: 'metrics.conns', value: count('requests', s && s.conns), unit: '', icon: 'link', tone: 'sg-tone-brand', sub: available('requests') ? (s.connsFailed + ' ' + t('metrics.failed')) : '', spark: [], foot: reqFoot }
           ];
 
           const devices = ((s && s.devices) || []).slice(0, p.maxDevices);
           const nodes = (s && s.nodes) || [];
           const merged = mergeEvents((s && s.events) || []).slice(0, p.maxEvents);
-          const sel = devices.length ? Math.min(ui.selected, devices.length - 1) : -1;
+          const selDevice = devices.length
+            ? (devices.find(function (dv) { return dv.key === ui.selectedKey; }) || devices[0])
+            : null;
           const counts = (s && s.counts) || {};
           const onRefresh = function () { store.fetch(); };
-          const active = s && s.activeConnection;
+          const active = state.activeConnection || (s && s.activeConnection);
+          const errMsg = tCode({ code: state.errorCode, detail: state.errorDetail, message: state.error });
+
+          const toggleEvent = function (key) {
+            setExpandedEvents(function (prev) {
+              const next = Object.assign({}, prev);
+              next[key] = !next[key];
+              return next;
+            });
+          };
 
           return h('div', { className: 'sg-stack' },
             state.status === 'error'
-              ? h('div', { className: 'sg-error' },
+              ? h('div', { className: 'sg-error', role: 'alert' },
                   I('info', 16),
-                  h('span', { className: 'sg-error-txt' }, t('status.error') + ' · ' + state.error + (state.updated ? ' · ' + t('status.stale') + ' ' + fmtTime(state.updated) : '')),
+                  h('span', { className: 'sg-error-txt' }, t('status.error') + ' · ' + errMsg + (state.updated ? ' · ' + t('status.stale') + ' ' + fmtTime(state.updated) : '')),
                   h('button', { type: 'button', className: 'sg-retry', onClick: onRefresh }, t('action.retry')))
               : h('div', { className: 'sg-livebar' },
                   h('span', { className: 'sg-dot-live' + (state.status === 'ok' && !p.paused ? ' is-live' : '') }),
                   h('span', { className: 'sg-live-txt' }, p.paused ? t('status.paused') : state.status === 'loading' ? t('status.loading') : t('status.online')),
-                  active ? h('span', { className: 'sg-sub' }, t('status.via') + ' · ' + active.name) : null,
+                  active ? h('span', { className: 'sg-sub' }, t('status.via') + ' · ' + connName(active)) : null,
                   h('span', { className: 'sg-live-sp' }),
                   state.updated ? h('span', { className: 'sg-sub sg-mono' }, t('status.updated') + ' ' + fmtTime(state.updated)) : null),
 
             h('div', { className: 'sg-metrics' }, metrics.map(function (m, i) {
               return h(MetricCard, Object.assign({ key: i }, m));
             })),
+
+            showRequests && available('requests')
+              ? h('div', { className: 'sg-card' },
+                  h('div', { className: 'sg-card-h' },
+                    h('h2', { className: 'sg-card-t' }, I('link', 16), t('requests.title')),
+                    Btn({ label: t('requests.hide'), sm: true, onClick: function () { setShowRequests(false); } })),
+                  recentReqs.length
+                    ? h('div', { className: 'sg-table-wrap' },
+                        h('table', { className: 'sg-diag-tbl' },
+                          h('thead', null, h('tr', null,
+                            h('th', null, t('requests.target')),
+                            h('th', null, t('requests.policy')),
+                            h('th', null, t('requests.status')),
+                            h('th', null, t('requests.traffic')))),
+                          h('tbody', null, recentReqs.map(function (rq) {
+                            const cls = rq.failed ? 'sg-pill-fail' : (!rq.completed ? 'sg-pill-warn' : 'sg-pill-ok');
+                            const stText = rq.failed ? t('requests.failed') : (!rq.completed ? t('requests.active') : t('requests.done'));
+                            return h('tr', { key: rq.id },
+                              h('td', { className: 'sg-mono sg-req-target', title: rq.target }, rq.target),
+                              h('td', null, rq.policy || '—'),
+                              h('td', null, h('span', { className: cls, title: rq.status || '' }, stText + (rq.status ? ' · ' + rq.status : ''))),
+                              h('td', { className: 'sg-mono' }, fmtBytesStr((rq.inBytes || 0) + (rq.outBytes || 0), false)));
+                          }))))
+                    : h('div', { className: 'sg-sub' }, t('requests.empty')))
+              : null,
 
             endpointHint(['requests']),
 
@@ -1044,7 +1338,7 @@ window.__ModuleLoader__.load({
                 downArr.length < 2
                   ? h('div', { className: 'sg-empty' }, t('chart.sampling'))
                   : (ui.showDown || ui.showUp)
-                    ? AreaChart({ down: downArr, up: upArr, labels: labArr, max: maxV }, ui.showDown, ui.showUp)
+                    ? h(AreaChart, { chart: { down: downArr, up: upArr, labels: labArr, max: maxV }, showDown: ui.showDown, showUp: ui.showUp })
                     : h('div', { className: 'sg-empty' }, t('chart.empty'))),
 
               h('div', { className: 'sg-card' },
@@ -1052,27 +1346,37 @@ window.__ModuleLoader__.load({
                   h('h2', { className: 'sg-card-t' }, I('wifi', 16), t('devices.title')),
                   h('span', { className: 'sg-sub' }, count('devices', s && s.devicesCount) + ' ' + t('devices.online'))),
                 devices.length
-                  ? h('div', { className: 'sg-dev-list' }, devices.map(function (dv, i) {
+                  ? h('div', { className: 'sg-dev-list' }, devices.map(function (dv) {
+                      const isSel = selDevice && selDevice.key === dv.key;
+                      const isHot = (dv.speed || 0) > 0;
                       return h('button', {
-                        key: i, type: 'button',
-                        className: 'sg-dev' + (i === sel ? ' is-sel' : ''),
-                        'aria-pressed': i === sel ? 'true' : 'false',
-                        onClick: function () { ui.setSelected(i); }
+                        key: dv.key, type: 'button',
+                        className: 'sg-dev' + (isSel ? ' is-sel' : ''),
+                        'aria-pressed': isSel ? 'true' : 'false',
+                        onClick: function () { ui.setSelectedKey(dv.key); }
                       },
-                        h('span', { className: 'sg-dev-dot' }),
+                        h('span', { className: 'sg-dev-dot' + (isHot ? ' is-hot' : '') }),
                         h('span', { className: 'sg-dev-ico' }, I(dv.icon, 16)),
                         h('span', { className: 'sg-dev-main' },
                           h('span', { className: 'sg-dev-name' }, dv.name),
                           h('span', { className: 'sg-dev-sub sg-mono' }, dv.ip)),
-                        h('span', { className: 'sg-dev-bar' },
-                          h('span', { className: 'sg-dev-bar-fill', style: { width: Math.max(4, dv.load * 100) + '%' } })));
+                        h('span', { className: 'sg-dev-right' },
+                          h('span', { className: 'sg-dev-speed sg-mono' + (isHot ? ' is-hot' : '') },
+                            isHot ? fmtBytesStr(dv.speed, true) : fmtBytesStr(dv.bytes || 0, false)),
+                          h('span', { className: 'sg-dev-bar', title: t('devices.barTitle') },
+                            h('span', { className: 'sg-dev-bar-fill', style: { width: Math.max(4, dv.load * 100) + '%' } }))));
                     }))
                   : h('div', { className: 'sg-empty' }, available('devices') ? t('devices.empty') : t('status.unavailable')),
                 endpointHint(['devices']),
-                sel >= 0
+                selDevice
                   ? h('div', { className: 'sg-dev-foot' },
-                      h('span', { className: 'sg-sub' }, t('devices.throughput') + ' · ' + devices[sel].name),
-                      h('b', { className: 'sg-mono' }, fmtBytes(devices[sel].speed, true).value + ' ' + fmtBytes(devices[sel].speed, true).unit))
+                      h('span', { className: 'sg-sub' }, selDevice.name),
+                      h('span', { className: 'sg-sub' },
+                        t('devices.throughput') + ' ',
+                        h('b', { className: 'sg-mono' }, fmtBytesStr(selDevice.speed, true)),
+                        ' · ',
+                        t('devices.sessionTotal') + ' ',
+                        h('b', { className: 'sg-mono' }, fmtBytesStr(selDevice.bytes || 0, false))))
                   : null)),
 
             h('div', { className: 'sg-bottom-grid' },
@@ -1092,11 +1396,10 @@ window.__ModuleLoader__.load({
                   h('span', { className: 'sg-sub' }, t('quality.latency'))),
                 nodes.length
                   ? nodes.map(function (node, i) {
-                      const bf = fmtBytes(node.bytes, false);
-                      return h('div', { key: i, className: 'sg-node' },
+                      return h('div', { key: node.name || i, className: 'sg-node' },
                         h('div', { className: 'sg-node-top' },
                           h('span', { className: 'sg-node-name' }, node.name),
-                          h('span', { className: 'sg-node-ms sg-mono' }, bf.value + ' ' + bf.unit)),
+                          h('span', { className: 'sg-node-ms sg-mono' }, fmtBytesStr(node.bytes, false))),
                         h('div', { className: 'sg-track' },
                           h('span', { className: 'sg-track-fill sg-tone-brand', style: { width: Math.max(3, node.share) + '%' } })));
                     })
@@ -1106,7 +1409,14 @@ window.__ModuleLoader__.load({
                 h('div', { className: 'sg-card-h' }, h('h2', { className: 'sg-card-t' }, I('clock', 16), t('events.title'))),
                 merged.length
                   ? h('div', { className: 'sg-timeline' }, merged.map(function (ev) {
-                      return h('div', { key: ev.key, className: 'sg-event', title: ev.text },
+                      const open = !!expandedEvents[ev.key];
+                      return h('button', {
+                        key: ev.key, type: 'button',
+                        className: 'sg-event' + (open ? ' is-expanded' : ''),
+                        title: t('events.toggleHint'),
+                        'aria-expanded': open ? 'true' : 'false',
+                        onClick: function () { toggleEvent(ev.key); }
+                      },
                         h('span', { className: 'sg-event-dot ' + toneOf(ev.tone) }),
                         h('span', { className: 'sg-event-txt' }, ev.text),
                         ev.count > 1 ? h('span', { className: 'sg-event-count sg-mono' }, '×' + ev.count) : null,
@@ -1120,14 +1430,16 @@ window.__ModuleLoader__.load({
         }
 
         /* ================================================================ *
-         * DEVICES — restored multi-instance management + Fleet summary.
+         * DEVICES — multi-instance management + Fleet summary.
          * ================================================================ */
-        function DevicesPanel() {
+        function DevicesPanel(props) {
+          const onConnectionsChanged = props && props.onConnectionsChanged;
           const [data, setData] = useState({ connections: [], activeId: 'local', loading: true, error: '' });
           const [fleet, setFleet] = useState({ fleet: [], totals: { online: 0, total: 0, down: 0, up: 0, conns: 0 }, loading: true, error: '', updated: null });
           const [form, setForm] = useState(null);
+          const [formError, setFormError] = useState('');
           const [busy, setBusy] = useState('');
-          const [notice, setNotice] = useState('');
+          const [notice, setNotice] = useState(null);
           const [confirmId, setConfirmId] = useState('');
           const [testResult, setTestResult] = useState(null);
 
@@ -1137,7 +1449,7 @@ window.__ModuleLoader__.load({
             const seq = ++requests.current.connSeq;
             return api('/surge-api/connections', { signal }).then(function (result) {
               if (signal.aborted || seq !== requests.current.connSeq) return;
-              if (!result.ok) throw new Error(result.message || 'error');
+              if (!result.ok) throw new Error(tCode(result) || 'error');
               setData({ connections: result.connections || [], activeId: result.activeId || 'local', loading: false, error: '' });
             }).catch(function (error) {
               if (!signal.aborted && seq === requests.current.connSeq) setData(function (prev) { return { ...prev, loading: false, error: String(error.message || error) }; });
@@ -1149,7 +1461,7 @@ window.__ModuleLoader__.load({
             setFleet(function (prev) { return { ...prev, loading: true }; });
             return api('/surge-api/fleet', { signal, timeoutMs: 90000 }).then(function (result) {
               if (signal.aborted || seq !== requests.current.fleetSeq) return;
-              if (!result.ok) throw new Error(result.message || 'error');
+              if (!result.ok) throw new Error(tCode(result) || 'error');
               setFleet({ fleet: result.fleet || [], totals: result.totals, loading: false, error: '', updated: new Date() });
             }).catch(function (error) {
               if (!signal.aborted && seq === requests.current.fleetSeq) setFleet(function (prev) { return { ...prev, loading: false, error: String(error.message || error) }; });
@@ -1165,19 +1477,22 @@ window.__ModuleLoader__.load({
             if (requests.current.busy) return Promise.resolve({ ok: false, cancelled: true });
             requests.current.busy = true;
             const signal = requests.current.controller.signal;
-            setBusy(path); setNotice('');
+            setBusy(path); setNotice(null);
             return post(path, body, { signal }).then(function (result) {
               if (signal.aborted) return { ok: false, cancelled: true };
-              if (!result.ok) setNotice(t('dm.error') + (result.message ? ' · ' + result.message : ''));
-              else if (path !== '/surge-api/connection/test') {
+              if (!result.ok && path !== '/surge-api/connection/test') {
+                const msg = tCode(result);
+                setNotice({ text: t('dm.error') + (msg ? ' · ' + msg : ''), tone: 'is-danger' });
+              } else if (result.ok && path !== '/surge-api/connection/test') {
                 requests.current.connSeq++; requests.current.fleetSeq++;
                 setData({ connections: result.connections || [], activeId: result.activeId || 'local', loading: false, error: '' });
                 store.invalidate();
+                if (typeof onConnectionsChanged === 'function') onConnectionsChanged();
               }
               return result;
             }).catch(function (error) {
               if (signal.aborted) return { ok: false, cancelled: true };
-              setNotice(t('dm.error') + ' · ' + String(error.message || error));
+              setNotice({ text: t('dm.error') + ' · ' + String(error.message || error), tone: 'is-danger' });
               return { ok: false };
             }).finally(function () {
               requests.current.busy = false;
@@ -1188,46 +1503,83 @@ window.__ModuleLoader__.load({
 
           const onActivate = function (id) {
             call('/surge-api/connection/activate', { id: id }).then(function (r) {
-              if (r.ok) { setNotice(t('dm.activated')); reloadAll(); }
+              if (r.ok) { setNotice({ text: t('dm.activated'), tone: 'is-ok' }); reloadAll(); }
             });
           };
           const onDelete = function (id) {
             setConfirmId('');
             call('/surge-api/connection/delete', { id: id }).then(function (r) {
-              if (r.ok) { setNotice(t('dm.deleted')); reloadAll(); }
+              if (r.ok) {
+                if (form && form.id === id) { setForm(null); setFormError(''); }
+                if (testResult && testResult.id === id) setTestResult(null);
+                setNotice({ text: t('dm.deleted'), tone: 'is-ok' });
+                reloadAll();
+              }
             });
           };
           const onTest = function (c) {
             setTestResult(null);
             call('/surge-api/connection/test', { id: c.id }).then(function (r) {
               if (r.cancelled) return;
-              setTestResult({ id: c.id, ok: !!r.ok, message: r.message || (r.ok ? t('dm.test.ok') : t('dm.test.fail')), rtt: r.rtt, mode: r.mode });
+              const detail = tCode(r) || (r.ok ? t('dm.test.ok') : t('dm.test.fail'));
+              setTestResult({ id: c.id, ok: !!r.ok, message: detail, rtt: r.rtt, mode: r.mode });
             });
           };
           const onTestForm = function (f) {
+            const host = String(f.host || '').trim();
+            const port = Number(f.port);
+            if (!host || !Number.isInteger(port) || port < 1 || port > 65535) {
+              setFormError(t('dm.testErr'));
+              return;
+            }
+            if (!f.hasKey && !String(f.apiKey || '').trim()) {
+              setFormError(t('err.MISSING_CONNECTION'));
+              return;
+            }
+            setFormError('');
             setTestResult(null);
             call('/surge-api/connection/test', { connection: f }).then(function (r) {
               if (r.cancelled) return;
-              setTestResult({ id: 'form', ok: !!r.ok, message: r.message || (r.ok ? t('dm.test.ok') : t('dm.test.fail')), rtt: r.rtt, mode: r.mode });
+              const detail = tCode(r) || (r.ok ? t('dm.test.ok') : t('dm.test.fail'));
+              setTestResult({ id: 'form', ok: !!r.ok, message: detail, rtt: r.rtt, mode: r.mode });
             });
           };
-          const onSave = function (f) {
-            if (!f.name || !f.host || !f.port) { setNotice(t('dm.saveErr')); return; }
+          const onSave = function (f, activate) {
+            const name = String(f.name || '').trim();
+            const host = String(f.host || '').trim();
+            const port = Number(f.port);
+            if (!name || !host || !Number.isInteger(port) || port < 1 || port > 65535) {
+              setFormError(t('dm.saveErr'));
+              return;
+            }
+            setFormError('');
             const body = {
-              id: f.id || '', name: f.name, protocol: f.protocol, host: f.host,
-              port: Number(f.port), platform: f.platform, apiKey: f.apiKey || '', caCert: f.caCert || ''
+              id: f.id || '', name: name, protocol: f.protocol, host: host,
+              port: port, platform: f.platform, apiKey: f.apiKey || '', caCert: f.caCert || ''
             };
-            call('/surge-api/connection/save', { connection: body }).then(function (r) {
-              if (r.ok) { setForm(null); setNotice(t('dm.savedOk')); reloadAll(); }
+            call('/surge-api/connection/save', { connection: body, activate: !!activate }).then(function (r) {
+              if (r.ok) {
+                setForm(null);
+                setFormError('');
+                setTestResult(null);
+                setNotice({ text: activate ? t('dm.activated') : t('dm.savedOk'), tone: 'is-ok' });
+                reloadAll();
+              } else if (!r.cancelled) {
+                setFormError(tCode(r) || t('dm.error'));
+              }
             });
           };
           const openAdd = function () {
-            setForm({ id: '', name: '', protocol: 'http', host: '', port: '6171', platform: 'auto', apiKey: '', caCert: '' });
-            setTestResult(null); setNotice('');
+            setForm({ id: '', name: '', protocol: 'http', host: '', port: '6171', platform: 'auto', apiKey: '', caCert: '', hasKey: false });
+            setFormError(''); setTestResult(null); setNotice(null);
           };
           const openEdit = function (c) {
-            setForm({ id: c.id, name: c.name, protocol: c.protocol, host: c.host, port: String(c.port), platform: c.platform || 'auto', apiKey: '', caCert: c.caCert || '' });
-            setTestResult(null); setNotice('');
+            setForm({ id: c.id, name: c.name, protocol: c.protocol, host: c.host, port: String(c.port), platform: c.platform || 'auto', apiKey: '', caCert: c.caCert || '', hasKey: !!c.hasKey });
+            setFormError(''); setTestResult(null); setNotice(null);
+          };
+          const closeForm = function () {
+            setForm(null); setFormError('');
+            if (testResult && testResult.id === 'form') setTestResult(null);
           };
 
           function fld(labelKey, name, f, setF, type, ph, choices) {
@@ -1238,6 +1590,15 @@ window.__ModuleLoader__.load({
             return h('div', { className: 'sg-field', key: name }, h('label', { htmlFor: 'sg-field-' + name }, t(labelKey)), control);
           }
 
+          function renderTestBanner(id) {
+            if (!testResult || testResult.id !== id) return null;
+            return h('div', { className: 'sg-notice ' + (testResult.ok ? 'is-ok' : 'is-danger'), role: 'status' },
+              (testResult.ok ? t('dm.test.ok') : t('dm.test.fail')) +
+              (testResult.message && testResult.message !== (testResult.ok ? t('dm.test.ok') : t('dm.test.fail')) ? ' · ' + testResult.message : '') +
+              (typeof testResult.rtt === 'number' ? ' · ' + testResult.rtt + ' ' + t('dm.rttUnit') : '') +
+              (testResult.mode ? ' · ' + testResult.mode : ''));
+          }
+
           const platformOpts = [
             { v: 'auto', l: t('dm.platform.auto') }, { v: 'ios', l: t('dm.platform.ios') },
             { v: 'tvos', l: t('dm.platform.tvos') }, { v: 'macos', l: t('dm.platform.macos') }
@@ -1246,9 +1607,11 @@ window.__ModuleLoader__.load({
           const fleetById = {};
           for (const f of fleet.fleet) fleetById[f.id] = f;
           const totals = fleet.totals;
-          /* Host returns the built-in local connection as the first element
-           * (isLocal:true); it is rendered as a dedicated card below, so keep
-           * only the user-saved ones here to avoid a duplicate + miscount. */
+          const localConn = data.connections.find(function (c) { return c.isLocal; }) || { id: 'local', protocol: 'http', host: '127.0.0.1', port: 0, active: data.activeId === 'local', isLocal: true };
+          const localFleet = fleetById.local || {};
+          const localStatusCls = localFleet.online ? ' is-online' : (!fleet.loading && !fleet.error && localFleet.id ? ' is-offline' : '');
+          const localStatusLabel = fleet.loading ? t('st.loading') : fleet.error || !localFleet.id ? t('status.unavailable') : localFleet.online ? t('dm.status.online') : t('dm.status.offline');
+          const localMsg = localFleet.code ? tCode(localFleet) : localFleet.message;
           const saved = data.connections.filter(function (c) { return !c.isLocal; });
           const extra = saved.length;
 
@@ -1266,38 +1629,39 @@ window.__ModuleLoader__.load({
               Stat(t('dm.saved'), data.loading || data.error ? '—' : String(extra + 1), t('dm.local')),
               Stat(t('dm.online'), fleet.updated ? totals.online + ' / ' + totals.total : '—', t('dm.fleet.title')),
               Stat(t('dm.activeReqs'), fleet.updated && totals.connsComplete ? String(totals.conns) : '—', fleet.updated && !totals.connsComplete ? t('status.partial') : ''),
-              Stat(t('dm.totalDown'), fleet.updated ? fmtBytes(totals.down, true).value : '—', fleet.updated ? fmtBytes(totals.down, true).unit + ' · ' + t('status.partial') : ''),
-              Stat(t('dm.totalUp'), fleet.updated ? fmtBytes(totals.up, true).value : '—', fleet.updated ? fmtBytes(totals.up, true).unit + ' · ' + t('status.partial') : '')),
+              Stat(t('dm.totalDown'), fleet.updated ? fmtBytes(totals.down, true).value : '—', fleet.updated ? fmtBytes(totals.down, true).unit + (totals.online < totals.total ? ' · ' + t('status.partial') : '') : ''),
+              Stat(t('dm.totalUp'), fleet.updated ? fmtBytes(totals.up, true).value : '—', fleet.updated ? fmtBytes(totals.up, true).unit + (totals.online < totals.total ? ' · ' + t('status.partial') : '') : '')),
 
             data.error ? h('div', { className: 'sg-error', role: 'alert' }, data.error) : null,
             fleet.error ? h('div', { className: 'sg-error', role: 'alert' }, fleet.error + (fleet.updated ? ' · ' + t('status.stale') + ' ' + fmtTime(fleet.updated) : '')) : null,
-            notice ? h('div', { className: 'sg-notice', role: 'status' }, notice) : null,
+            notice ? h('div', { className: 'sg-notice' + (notice.tone ? ' ' + notice.tone : ''), role: 'status' }, notice.text) : null,
 
             /* Add / edit form */
-            form ? h('div', { className: 'sg-card' },
+            form ? h('form', {
+              className: 'sg-card',
+              onSubmit: function (e) { e.preventDefault(); onSave(form, false); },
+              onKeyDown: function (e) { if (e.key === 'Escape' && !busy) { e.preventDefault(); closeForm(); } }
+            },
               h('div', { className: 'sg-card-h' },
                 h('h2', { className: 'sg-card-t' }, I(form.id ? 'settings' : 'plus', 16), t(form.id ? 'dm.form.edit' : 'dm.form.add'))),
               h('div', { className: 'sg-form-grid' },
                 fld('dm.field.name', 'name', form, setForm, 'text', 'Surge Mac mini'),
                 fld('dm.field.protocol', 'protocol', form, setForm, null, null, protocolOpts),
-                fld('dm.field.host', 'host', form, setForm, 'text', '192.168.5.10'),
+                fld('dm.field.host', 'host', form, setForm, 'text', '192.0.2.10'),
                 fld('dm.field.port', 'port', form, setForm, 'number', '6171'),
                 fld('dm.field.platform', 'platform', form, setForm, null, null, platformOpts),
                 fld('dm.field.key', 'apiKey', form, setForm, 'password', t('dm.field.keyHint'))),
-              form.protocol === 'https' ? h('div', { className: 'sg-field', style: { margin: '0 14px 14px' } },
+              form.protocol === 'https' ? h('div', { className: 'sg-field', style: { margin: '0 0 14px' } },
                 h('label', { htmlFor: 'sg-field-ca' }, t('dm.field.ca')),
                 h('textarea', { className: 'sg-input', id: 'sg-field-ca', disabled: !!busy, rows: 4, value: form.caCert, maxLength: 16384, onChange: function (event) { setForm({ ...form, caCert: event.target.value }); } }),
                 h('div', { className: 'sg-sub' }, t('dm.field.caHint'))) : null,
+              formError ? h('div', { className: 'sg-error', role: 'alert', style: { marginBottom: '12px' } }, formError) : null,
+              renderTestBanner('form'),
               h('div', { className: 'sg-form-actions' },
-                Btn({ label: t('dm.save'), icon: 'check', primary: true, onClick: function () { onSave(form); }, disabled: !!busy }),
+                Btn({ label: t('dm.save'), icon: 'check', primary: true, submit: true, disabled: !!busy }),
+                Btn({ label: t('dm.saveActivate'), icon: 'link', onClick: function () { onSave(form, true); }, disabled: !!busy }),
                 Btn({ label: t('dm.test'), icon: 'activity', onClick: function () { onTestForm(form); }, disabled: !!busy }),
-                Btn({ label: t('dm.cancel'), disabled: !!busy, onClick: function () { setForm(null); setTestResult(null); } })))
-              : null,
-
-            testResult ? h('div', { className: 'sg-notice' },
-              (testResult.ok ? t('dm.test.ok') : t('dm.test.fail')) + ' · ' + testResult.message +
-              (typeof testResult.rtt === 'number' ? ' · ' + testResult.rtt + ' ' + t('dm.rttUnit') : '') +
-              (testResult.mode ? ' · ' + testResult.mode : ''))
+                Btn({ label: t('dm.cancel'), disabled: !!busy, onClick: closeForm })))
               : null,
 
             /* Connection cards */
@@ -1306,22 +1670,31 @@ window.__ModuleLoader__.load({
               : null,
 
             h('div', { className: 'sg-conn-list' },
-              /* Local entry */
+              /* Local entry — displays real Fleet status, address, RTT & throughput */
               h('div', { className: 'sg-card', key: 'local' },
                 h('div', { className: 'sg-conn-top' },
                   h('span', { className: 'sg-ico-tile sg-tone-brand' }, I('laptop', 16)),
-                  h('span', { className: 'sg-conn-name' }, t('dm.local')),
-                  h('span', { className: 'sg-badge-sm' + (data.activeId === 'local' ? ' is-active' : '') }, data.activeId === 'local' ? t('dm.active') : t('dm.local'))),
+                  h('span', { className: 'sg-conn-name' }, t('dm.localName')),
+                  data.activeId === 'local' ? h('span', { className: 'sg-badge-sm is-active' }, t('dm.active')) : null,
+                  h('span', { className: 'sg-badge-sm' + localStatusCls }, localStatusLabel)),
                 h('div', { className: 'sg-conn-meta' },
+                  localConn.port ? h('span', { className: 'sg-conn-meta-item' }, I('globe', 13), t('dm.hostPort') + ' ', h('b', { className: 'sg-mono' }, (localConn.protocol || 'http') + '://' + (localConn.host || '127.0.0.1') + ':' + localConn.port)) : null,
+                  localFleet.online ? h('span', { className: 'sg-conn-meta-item' }, I('activity', 13), t('dm.rtt') + ' ', h('b', { className: 'sg-mono' }, (localFleet.rtt || 0) + ' ' + t('dm.rttUnit'))) : null,
+                  localFleet.online ? h('span', { className: 'sg-conn-meta-item' }, I('download', 13), t('dm.totalDown') + ' ', h('b', { className: 'sg-mono' }, fmtBytesStr(localFleet.down, true))) : null,
+                  localFleet.online ? h('span', { className: 'sg-conn-meta-item' }, I('upload', 13), t('dm.totalUp') + ' ', h('b', { className: 'sg-mono' }, fmtBytesStr(localFleet.up, true))) : null,
                   h('span', { className: 'sg-conn-meta-item' }, I('info', 13), h('span', null, t('dm.localHint')))),
+                localMsg ? h('div', { className: 'sg-notice ' + (localFleet.online ? 'is-warn' : 'is-danger') }, localMsg) : null,
+                renderTestBanner('local'),
                 h('div', { className: 'sg-conn-actions' },
                   Btn({ label: t('dm.activate'), icon: 'check', sm: true, disabled: data.activeId === 'local' || !!busy, onClick: function () { onActivate('local'); } }),
                   Btn({ label: t('dm.test'), icon: 'activity', sm: true, disabled: !!busy, onClick: function () { onTest({ id: 'local' }); } }))),
 
               saved.map(function (c) {
                 const ff = fleetById[c.id] || {};
-                const statusCls = ff.online ? ' is-online' : (c.hasKey ? ' is-offline' : ' is-warn');
-                const statusLabel = fleet.loading ? t('st.loading') : fleet.error || !ff.id ? t('status.unavailable') : ff.online ? t('dm.status.online') : t('dm.status.offline');
+                const noKey = !c.hasKey && !ff.online;
+                const statusCls = ff.online ? ' is-online' : (noKey ? ' is-warn' : ' is-offline');
+                const statusLabel = fleet.loading ? t('st.loading') : noKey ? t('dm.status.noKey') : fleet.error || !ff.id ? t('status.unavailable') : ff.online ? t('dm.status.online') : t('dm.status.offline');
+                const ffMsg = ff.code ? tCode(ff) : ff.message;
                 return h('div', { className: 'sg-card', key: c.id },
                   h('div', { className: 'sg-conn-top' },
                     h('span', { className: 'sg-ico-tile sg-tone-idle' }, I('server', 16)),
@@ -1333,18 +1706,19 @@ window.__ModuleLoader__.load({
                     h('span', { className: 'sg-conn-meta-item' }, I('shield', 13), t('dm.keyBadge') + ' ', h('b', null, c.hasKey ? t('dm.field.keyStored') : t('dm.field.keyMissing'))),
                     h('span', { className: 'sg-conn-meta-item' }, I('server', 13), t('dm.field.platform') + ' ', h('b', null, t('dm.platform.' + (c.platform || 'auto')) || c.platform)),
                     ff.online ? h('span', { className: 'sg-conn-meta-item' }, I('activity', 13), t('dm.rtt') + ' ', h('b', { className: 'sg-mono' }, (ff.rtt || 0) + ' ' + t('dm.rttUnit'))) : null,
-                    ff.online ? h('span', { className: 'sg-conn-meta-item' }, I('download', 13), t('dm.totalDown') + ' ', h('b', { className: 'sg-mono' }, fmtBytes(ff.down, true).value + ' ' + fmtBytes(ff.down, true).unit)) : null,
-                    ff.online ? h('span', { className: 'sg-conn-meta-item' }, I('upload', 13), t('dm.totalUp') + ' ', h('b', { className: 'sg-mono' }, fmtBytes(ff.up, true).value + ' ' + fmtBytes(ff.up, true).unit)) : null),
-                  ff.message ? h('div', { className: 'sg-notice' }, ff.message) : null,
+                    ff.online ? h('span', { className: 'sg-conn-meta-item' }, I('download', 13), t('dm.totalDown') + ' ', h('b', { className: 'sg-mono' }, fmtBytesStr(ff.down, true))) : null,
+                    ff.online ? h('span', { className: 'sg-conn-meta-item' }, I('upload', 13), t('dm.totalUp') + ' ', h('b', { className: 'sg-mono' }, fmtBytesStr(ff.up, true))) : null),
+                  ffMsg ? h('div', { className: 'sg-notice ' + (ff.online ? 'is-warn' : 'is-danger') }, ffMsg) : null,
+                  renderTestBanner(c.id),
                   confirmId === c.id
-                    ? h('div', { className: 'sg-notice' }, t('dm.confirmDelete'))
+                    ? h('div', { className: 'sg-notice is-danger', role: 'alert' }, t('dm.confirmDelete'))
                     : null,
                   h('div', { className: 'sg-conn-actions' },
                     Btn({ label: t('dm.activate'), icon: 'check', sm: true, disabled: c.active || !!busy, onClick: function () { onActivate(c.id); } }),
                     Btn({ label: t('dm.test'), icon: 'activity', sm: true, disabled: !!busy, onClick: function () { onTest(c); } }),
                     Btn({ label: t('dm.edit'), icon: 'settings', sm: true, disabled: !!busy, onClick: function () { openEdit(c); } }),
                     confirmId === c.id
-                      ? Btn({ label: t('dm.save'), icon: 'check', danger: true, sm: true, disabled: !!busy, onClick: function () { onDelete(c.id); } })
+                      ? Btn({ label: t('dm.confirmDeleteBtn'), icon: 'trash', danger: true, sm: true, disabled: !!busy, onClick: function () { onDelete(c.id); } })
                       : Btn({ label: t('dm.delete'), icon: 'trash', danger: true, sm: true, disabled: !!busy, onClick: function () { setConfirmId(c.id); } }),
                     confirmId === c.id ? Btn({ label: t('dm.cancel'), sm: true, onClick: function () { setConfirmId(''); } }) : null));
               })),
@@ -1357,13 +1731,17 @@ window.__ModuleLoader__.load({
          * SETTINGS — restored appearance, refresh, display, diagnostics,
          * active-connection info and an honest About note.
          * ================================================================ */
-        function SettingsPanel() {
+        function SettingsPanel(props) {
+          const fallbackActive = props && props.activeConnection;
           const [diag, setDiag] = useState({ running: false, data: null, error: '' });
+          const [resetDone, setResetDone] = useState(false);
           const diagRequest = useRef(new AbortController());
+          const resetTimer = useRef(null);
           const p = prefs.get();
           const set = function (patch) { prefs.set(patch); };
-          const s = store.get().snap;
-          const active = s && s.activeConnection;
+          const state = store.get();
+          const s = state.snap;
+          const active = (s && s.activeConnection) || state.activeConnection || fallbackActive;
 
           useEffect(function () {
             const controller = new AbortController();
@@ -1371,6 +1749,17 @@ window.__ModuleLoader__.load({
             setDiag({ running: false, data: null, error: '' });
             return function () { controller.abort(); };
           }, [s && s.connectionRevision, active && active.id]);
+
+          useEffect(function () {
+            return function () { if (resetTimer.current) clearTimeout(resetTimer.current); };
+          }, []);
+
+          const onReset = function () {
+            prefs.reset();
+            setResetDone(true);
+            if (resetTimer.current) clearTimeout(resetTimer.current);
+            resetTimer.current = setTimeout(function () { setResetDone(false); }, 2500);
+          };
 
           const refreshOpts = [2000, 5000, 10000, 30000, 60000].map(function (v) {
             return { v: v, l: (v / 1000) + ' ' + t('st.seconds') };
@@ -1385,7 +1774,7 @@ window.__ModuleLoader__.load({
             api('/surge-api/diagnostics', { signal }).then(function (r) {
               if (signal.aborted) return;
               if (r.ok) setDiag({ running: false, data: r, error: '' });
-              else setDiag({ running: false, data: null, error: r.message || r.code || t('st.diag.retry') });
+              else setDiag({ running: false, data: null, error: tCode(r, 'st.diag.retry') });
             }).catch(function (e) {
               if (!signal.aborted) setDiag({ running: false, data: null, error: String((e && e.message) || e) });
             });
@@ -1393,21 +1782,29 @@ window.__ModuleLoader__.load({
 
           const diagBody = diag.data
             ? h('div', null,
-                h('div', { className: 'sg-sub', style: { marginBottom: '10px' } }, t('st.diag.gateway') + ' · ' + (diag.data.endpoint ? diag.data.endpoint.base + ' (:' + diag.data.endpoint.port + ')' : '—')),
-                h('table', { className: 'sg-diag-tbl' },
-                  h('thead', null, h('tr', null,
-                    h('th', null, t('st.diag.endpoint')), h('th', null, t('st.diag.status')),
-                    h('th', null, t('st.diag.rtt')), h('th', null, t('st.diag.shape')))),
-                  h('tbody', null, (diag.data.checks || []).map(function (c) {
-                    return h('tr', { key: c.name },
-                      h('td', { className: 'sg-mono' }, c.path),
-                      h('td', null, h('span', { title: c.message || '', className: c.ok ? 'sg-pill-ok' : 'sg-pill-fail' }, c.ok ? t('st.diag.ok') : t('st.diag.fail') + ' (' + c.status + ')')),
-                      h('td', { className: 'sg-mono' }, c.rtt + ' ' + t('dm.rttUnit')),
-                      h('td', { className: 'sg-mono' }, c.shape));
-                  }))))
+                h('div', { className: 'sg-sub', style: { marginBottom: '10px' } }, t('st.diag.gateway') + ' · ' + (diag.data.endpoint ? (diag.data.endpoint.tls ? 'https://' : 'http://') + diag.data.endpoint.base : '—')),
+                h('div', { className: 'sg-table-wrap' },
+                  h('table', { className: 'sg-diag-tbl' },
+                    h('thead', null, h('tr', null,
+                      h('th', null, t('st.diag.endpoint')), h('th', null, t('st.diag.status')),
+                      h('th', null, t('st.diag.rtt')), h('th', null, t('st.diag.shape')))),
+                    h('tbody', null, (diag.data.checks || []).map(function (c) {
+                      return h('tr', { key: c.name },
+                        h('td', { className: 'sg-mono' }, c.path),
+                        h('td', null, h('span', { title: c.message || '', className: c.ok ? 'sg-pill-ok' : 'sg-pill-fail' }, c.ok ? t('st.diag.ok') : t('st.diag.fail') + ' (' + c.status + ')')),
+                        h('td', { className: 'sg-mono' }, c.rtt + ' ' + t('dm.rttUnit')),
+                        h('td', { className: 'sg-mono' }, c.shape));
+                    })))))
             : diag.error
-              ? h('div', { className: 'sg-notice' }, diag.error)
+              ? h('div', { className: 'sg-notice is-danger', role: 'alert' }, diag.error)
               : h('div', { className: 'sg-sub' }, t('st.diagnostics.desc'));
+
+          const activeHost = active && active.host && active.port
+            ? ' · ' + (active.host.includes(':') ? '[' + active.host + ']' : active.host) + ':' + active.port
+            : '';
+          const activeLabel = active
+            ? connName(active) + activeHost + ((active.local || active.isLocal || active.id === 'local') ? ' (' + t('dm.local') + ')' : '')
+            : '—';
 
           return h('div', { className: 'sg-stack' },
             h('div', { className: 'sg-card' },
@@ -1415,7 +1812,8 @@ window.__ModuleLoader__.load({
                 h('div', null,
                   h('h2', { className: 'sg-card-t' }, I('settings', 16), t('st.title')),
                   h('p', { className: 'sg-subtitle' }, t('st.subtitle'))),
-                Btn({ label: t('st.reset'), icon: 'refresh', sm: true, onClick: function () { prefs.reset(); } }))),
+                Btn({ label: t('st.reset'), icon: 'refresh', sm: true, onClick: onReset })),
+              resetDone ? h('div', { className: 'sg-notice is-ok', role: 'status' }, t('st.resetDone')) : null),
 
             /* Appearance */
             h('div', { className: 'sg-card' },
@@ -1427,27 +1825,32 @@ window.__ModuleLoader__.load({
                   { v: 'system', l: 'st.appearance.system' },
                   { v: 'light', l: 'st.appearance.light' },
                   { v: 'dark', l: 'st.appearance.dark' }
-                ], function (v) { set({ appearance: v }); }))),
+                ], function (v) { set({ appearance: v }); }, t('st.appearance')))),
 
             /* Data refresh */
             h('div', { className: 'sg-card' },
               h('div', { className: 'sg-card-h' },
                 h('h2', { className: 'sg-card-t' }, I('refresh', 16), t('st.data'))),
-              SetRow('st.refresh', 'st.refresh.desc',
-                Select(p.refreshMs, refreshOpts, function (v) { set({ refreshMs: Number(v) }); })),
-              SetRow('st.samples', 'st.samples.desc',
-                Select(p.samplePoints, sampleOpts, function (v) { set({ samplePoints: Number(v) }); })),
-              SetRow('st.pause', 'st.pause.desc',
-                Switch(p.paused, function (v) { set({ paused: v }); }))),
+              SetRow('st.refresh', 'st.refresh.desc', function (id) {
+                return Select(p.refreshMs, refreshOpts, function (v) { set({ refreshMs: Number(v) }); }, id);
+              }),
+              SetRow('st.samples', 'st.samples.desc', function (id) {
+                return Select(p.samplePoints, sampleOpts, function (v) { set({ samplePoints: Number(v) }); }, id);
+              }),
+              SetRow('st.pause', 'st.pause.desc', function (id) {
+                return Switch(p.paused, function (v) { set({ paused: v }); }, id);
+              })),
 
             /* Display */
             h('div', { className: 'sg-card' },
               h('div', { className: 'sg-card-h' },
                 h('h2', { className: 'sg-card-t' }, I('globe', 16), t('st.display'))),
-              SetRow('st.maxDevices', 'st.maxDevices.desc',
-                Select(p.maxDevices, devOpts, function (v) { set({ maxDevices: Number(v) }); })),
-              SetRow('st.maxEvents', 'st.maxEvents.desc',
-                Select(p.maxEvents, evOpts, function (v) { set({ maxEvents: Number(v) }); }))),
+              SetRow('st.maxDevices', 'st.maxDevices.desc', function (id) {
+                return Select(p.maxDevices, devOpts, function (v) { set({ maxDevices: Number(v) }); }, id);
+              }),
+              SetRow('st.maxEvents', 'st.maxEvents.desc', function (id) {
+                return Select(p.maxEvents, evOpts, function (v) { set({ maxEvents: Number(v) }); }, id);
+              })),
 
             /* Active connection */
             h('div', { className: 'sg-card' },
@@ -1455,9 +1858,7 @@ window.__ModuleLoader__.load({
                 h('div', null,
                   h('h2', { className: 'sg-card-t' }, I('link', 16), t('st.connection')),
                   h('p', { className: 'sg-subtitle' }, t('st.connection.desc'))),
-                h('span', { className: 'sg-kv-val sg-mono' }, active
-                  ? active.name + ' · ' + active.host + ':' + active.port + (active.local ? ' (' + t('dm.local') + ')' : '')
-                  : '—'))),
+                h('span', { className: 'sg-kv-val sg-mono' }, activeLabel))),
 
             /* API diagnostics */
             h('div', { className: 'sg-card' },
@@ -1488,37 +1889,106 @@ window.__ModuleLoader__.load({
           const [tab, setTab] = useState('overview');
           const [showDown, setShowDown] = useState(true);
           const [showUp, setShowUp] = useState(true);
-          const [selected, setSelected] = useState(0);
+          const [selectedKey, setSelectedKey] = useState('');
+          const [conns, setConns] = useState({ connections: [], activeId: 'local' });
+          const [menuOpen, setMenuOpen] = useState(false);
+          const [switching, setSwitching] = useState(false);
+          const switcherRef = useRef(null);
+          const tabRefs = useRef({});
+          const connReq = useRef({ controller: null, seq: 0 });
+
+          const loadConns = function () {
+            if (connReq.current.controller) connReq.current.controller.abort();
+            const controller = new AbortController();
+            const seq = ++connReq.current.seq;
+            connReq.current.controller = controller;
+            return api('/surge-api/connections', { signal: controller.signal }).then(function (r) {
+              if (controller.signal.aborted || seq !== connReq.current.seq) return;
+              if (r.ok && Array.isArray(r.connections)) {
+                setConns({ connections: r.connections, activeId: r.activeId || 'local' });
+              }
+            }).catch(function () { /* Non-fatal; snapshot still supplies activeConnection */ });
+          };
 
           useEffect(function () {
             const bump = function () { force(function (v) { return v + 1; }); };
             const a = ctx.locale.subscribe(bump);
             const b = store.subscribe(bump);
             const c = prefs.subscribe(bump);
+            loadConns();
             return function () {
+              if (connReq.current.controller) connReq.current.controller.abort();
               if (typeof a === 'function') a();
               if (typeof b === 'function') b();
               if (typeof c === 'function') c();
             };
           }, []);
 
+          useEffect(function () {
+            if (!menuOpen) return undefined;
+            const onDocDown = function (e) {
+              if (switcherRef.current && !switcherRef.current.contains(e.target)) setMenuOpen(false);
+            };
+            const onDocKey = function (e) {
+              if (e.key === 'Escape') setMenuOpen(false);
+            };
+            document.addEventListener('mousedown', onDocDown);
+            document.addEventListener('keydown', onDocKey);
+            return function () {
+              document.removeEventListener('mousedown', onDocDown);
+              document.removeEventListener('keydown', onDocKey);
+            };
+          }, [menuOpen]);
+
           const state = store.get();
           const p = prefs.get();
           useEffect(function () { return startPolling(store, p); }, [p.paused, p.refreshMs]);
           const rootCls = 'sg-root' + (p.appearance === 'light' ? ' sg-force-light' : p.appearance === 'dark' ? ' sg-force-dark' : '');
           const onRefresh = function () { store.fetch(); };
+          const onTogglePause = function () { prefs.set({ paused: !p.paused }); };
           const ui = {
             showDown: showDown, setShowDown: setShowDown,
             showUp: showUp, setShowUp: setShowUp,
-            selected: selected, setSelected: setSelected
+            selectedKey: selectedKey, setSelectedKey: setSelectedKey
           };
-          const active = state.snap && state.snap.activeConnection;
+          const listActive = conns.connections.find(function (c) { return c.active || c.id === conns.activeId; }) || null;
+          const active = (state.snap && state.snap.activeConnection) || state.activeConnection || listActive;
+
+          const switchTo = function (id) {
+            if (switching) return;
+            setMenuOpen(false);
+            if (active && active.id === id) return;
+            setSwitching(true);
+            post('/surge-api/connection/activate', { id: id }).then(function (r) {
+              if (r && r.ok) {
+                if (Array.isArray(r.connections)) setConns({ connections: r.connections, activeId: r.activeId || id });
+                store.invalidate();
+                store.fetch();
+              }
+            }).catch(function () { /* noop */ }).finally(function () { setSwitching(false); });
+          };
 
           const tabs = [
             { k: 'overview', l: 'tab.overview', i: 'activity' },
             { k: 'devices', l: 'tab.devices', i: 'server' },
             { k: 'settings', l: 'tab.settings', i: 'settings' }
           ];
+          const onTabKeyDown = function (e, idx) {
+            let nextIdx = -1;
+            if (e.key === 'ArrowRight') nextIdx = (idx + 1) % tabs.length;
+            else if (e.key === 'ArrowLeft') nextIdx = (idx - 1 + tabs.length) % tabs.length;
+            else if (e.key === 'Home') nextIdx = 0;
+            else if (e.key === 'End') nextIdx = tabs.length - 1;
+            if (nextIdx >= 0) {
+              e.preventDefault();
+              const nextKey = tabs[nextIdx].k;
+              setTab(nextKey);
+              const el = tabRefs.current[nextKey];
+              if (el && typeof el.focus === 'function') el.focus();
+            }
+          };
+
+          const menuItems = conns.connections.length ? conns.connections : (active ? [active] : []);
 
           return h('div', { className: rootCls },
             h('div', { className: 'sg-header' },
@@ -1531,27 +2001,76 @@ window.__ModuleLoader__.load({
                   h('span', { className: 'sg-badge-dot' }),
                   t(p.paused ? 'status.paused' : state.status === 'ok' ? 'badge.live' : state.status === 'loading' ? 'badge.connecting' : 'badge.offline')),
                 h('button', {
+                  type: 'button', className: 'sg-icon-btn' + (p.paused ? ' is-active' : ''),
+                  title: t(p.paused ? 'action.resume' : 'action.pause'),
+                  'aria-label': t(p.paused ? 'action.resume' : 'action.pause'),
+                  'aria-pressed': p.paused ? 'true' : 'false',
+                  onClick: onTogglePause
+                }, I(p.paused ? 'play' : 'pause', 15)),
+                h('button', {
                   type: 'button', className: 'sg-icon-btn', title: t('action.refresh'),
-                  'aria-label': t('action.refresh'), onClick: onRefresh
-                }, I('refresh', 16)))),
+                  'aria-label': t('action.refresh'), 'aria-busy': state.fetching ? 'true' : 'false',
+                  disabled: state.fetching, onClick: onRefresh
+                }, I('refresh', 16, state.fetching ? 'sg-spin' : '')))),
 
             h('div', { className: 'sg-tabbar' },
-              h('div', { className: 'sg-tabs' }, tabs.map(function (tb) {
+              h('div', { className: 'sg-tabs', role: 'tablist', 'aria-label': t('panel.title') }, tabs.map(function (tb, idx) {
+                const isActive = tab === tb.k;
                 return h('button', {
-                  key: tb.k, type: 'button',
-                  className: 'sg-tab' + (tab === tb.k ? ' is-active' : ''),
-                  'aria-selected': tab === tb.k ? 'true' : 'false',
+                  key: tb.k, type: 'button', role: 'tab',
+                  id: 'sg-tab-' + tb.k, 'aria-controls': 'sg-panel-' + tb.k,
+                  tabIndex: isActive ? 0 : -1,
+                  ref: function (el) { tabRefs.current[tb.k] = el; },
+                  className: 'sg-tab' + (isActive ? ' is-active' : ''),
+                  'aria-selected': isActive ? 'true' : 'false',
+                  onKeyDown: function (e) { onTabKeyDown(e, idx); },
                   onClick: function () { setTab(tb.k); }
                 }, I(tb.i, 15), t(tb.l));
               })),
               h('span', { className: 'sg-tabbar-sp' }),
-              active ? h('span', { className: 'sg-active-chip' }, I('link', 13), active.name) : null),
+              h('div', { className: 'sg-switcher', ref: switcherRef },
+                h('button', {
+                  type: 'button', className: 'sg-active-chip',
+                  'aria-haspopup': 'menu', 'aria-expanded': menuOpen ? 'true' : 'false',
+                  title: t('action.switchConn'),
+                  'aria-label': t('action.switchConn') + (active ? ': ' + connName(active) : ''),
+                  disabled: switching,
+                  onClick: function () {
+                    setMenuOpen(function (v) {
+                      const next = !v;
+                      if (next) loadConns();
+                      return next;
+                    });
+                  }
+                }, I('link', 13), h('span', null, active ? connName(active) : t('dm.localName')), I('chevronDown', 13, 'sg-chev')),
+                menuOpen
+                  ? h('div', { className: 'sg-popover', role: 'menu' },
+                      menuItems.map(function (c) {
+                        const isCur = active ? active.id === c.id : !!c.active;
+                        const hostTxt = c.host && c.port ? (c.host.includes(':') ? '[' + c.host + ']' : c.host) + ':' + c.port : '';
+                        return h('button', {
+                          key: c.id, type: 'button', role: 'menuitemradio',
+                          'aria-checked': isCur ? 'true' : 'false',
+                          className: 'sg-pop-item' + (isCur ? ' is-active' : ''),
+                          onClick: function () { switchTo(c.id); }
+                        },
+                          I(isCur ? 'check' : 'server', 13),
+                          h('span', { className: 'sg-pop-name' }, connName(c)),
+                          hostTxt ? h('span', { className: 'sg-pop-host sg-mono' }, hostTxt) : null);
+                      }),
+                      h('div', { className: 'sg-pop-div' }),
+                      h('button', {
+                        type: 'button', role: 'menuitem', className: 'sg-pop-item sg-pop-foot',
+                        onClick: function () { setMenuOpen(false); setTab('devices'); }
+                      }, I('settings', 13), h('span', null, t('action.manageConns'))))
+                  : null)),
 
-            tab === 'overview'
-              ? h(Overview, { ui: ui })
-              : tab === 'devices'
-                ? h(DevicesPanel, { key: 'devices' })
-                : h(SettingsPanel, { key: 'settings' })
+            h('div', { role: 'tabpanel', id: 'sg-panel-' + tab, 'aria-labelledby': 'sg-tab-' + tab },
+              tab === 'overview'
+                ? h(Overview, { ui: ui })
+                : tab === 'devices'
+                  ? h(DevicesPanel, { key: 'devices', onConnectionsChanged: loadConns })
+                  : h(SettingsPanel, { key: 'settings', activeConnection: active }))
           );
         }
 

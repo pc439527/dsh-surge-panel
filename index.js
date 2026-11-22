@@ -20,11 +20,11 @@
 import http from 'node:http';
 import https from 'node:https';
 import {
-  readdirSync, readFileSync, writeFileSync, mkdirSync, renameSync, existsSync, unlinkSync, chmodSync
+  readdirSync, readFileSync, writeFileSync, mkdirSync, renameSync, existsSync, unlinkSync, chmodSync, statSync
 } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { homedir } from 'node:os';
-import { randomBytes } from 'node:crypto';
+import { randomBytes, X509Certificate } from 'node:crypto';
 
 const ROUTE = '/surge-api/snapshot';
 const PROFILE_DIR = join(homedir(), 'Library', 'Application Support', 'Surge', 'Profiles');
@@ -56,7 +56,14 @@ function invalidateConnections() {
   connectionRevision++;
   cachedEndpoint = null;
   cachedSelection = null;
+  endpointDiscoveredAt = 0;
   responseCache.clear();
+}
+
+function resetRuntimeState() {
+  invalidateConnections();
+  connCache = null;
+  snapshotJobs.clear();
 }
 
 function connectionCopy() {
@@ -77,16 +84,38 @@ function discover() {
   } catch (e) {
     return [];
   }
+  if (typeof statSync === 'function' && files.length > 1) {
+    const mtime = new Map();
+    for (const file of files) {
+      try { mtime.set(file, statSync(join(PROFILE_DIR, file)).mtimeMs || 0); }
+      catch { mtime.set(file, 0); }
+    }
+    files.sort(function (a, b) { return (mtime.get(b) || 0) - (mtime.get(a) || 0); });
+  }
   const out = [];
   for (const file of files) {
     let text = '';
     try { text = readFileSync(join(PROFILE_DIR, file), 'utf8'); } catch (e) { continue; }
-    const m = /(?:^|\n)\s*http-api\s*=\s*([^@\s]+)@([^:\s]+):(\d+)/.exec(text);
-    if (!m) continue;
-    const tls = /\n\s*http-api-tls\s*=\s*true/i.test('\n' + text);
-    const port = Number(m[3]);
+    let section = '';
+    let apiMatch = null;
+    let tls = false;
+    for (const rawLine of text.split(/\r?\n/)) {
+      const line = rawLine.trim();
+      if (!line || line.charAt(0) === '#' || line.charAt(0) === ';') continue;
+      const sec = /^\[([^\]]+)\]$/.exec(line);
+      if (sec) { section = sec[1].trim().toLowerCase(); continue; }
+      if (section && section !== 'general') continue;
+      if (!apiMatch) {
+        const m = /^http-api\s*=\s*(.+)@(\[[^\]]+\]|[^:\s#;]+):(\d+)(?:\s*(?:[#;].*)?)?$/i.exec(line);
+        if (m) apiMatch = m;
+      }
+      if (/^http-api-tls\s*=\s*true(?:\s*(?:[#;].*)?)?$/i.test(line)) tls = true;
+    }
+    if (!apiMatch) continue;
+    const key = apiMatch[1].trim();
+    const port = Number(apiMatch[3]);
+    if (!key || !Number.isInteger(port) || port < 1 || port > 65535) continue;
     const base = (tls ? 'https' : 'http') + '://127.0.0.1:' + port;
-    const key = m[1];
     if (!out.some(function (o) { return o.base === base && o.key === key; })) {
       out.push({ base: base, key: key, port: port, tls: tls, file: file });
     }
@@ -157,21 +186,51 @@ function newId() {
   return 'c_' + Date.now().toString(36) + '_' + randomBytes(3).toString('hex');
 }
 
+function isValidCaPem(pem) {
+  if (!pem) return true;
+  if (pem.length > 16384) return false;
+  const blocks = pem.match(/-----BEGIN CERTIFICATE-----[\s\S]*?-----END CERTIFICATE-----/g);
+  if (!blocks || !blocks.length) return false;
+  const remainder = pem.replace(/-----BEGIN CERTIFICATE-----[\s\S]*?-----END CERTIFICATE-----/g, '').trim();
+  if (remainder) return false;
+  if (typeof X509Certificate === 'function') {
+    try {
+      for (const block of blocks) new X509Certificate(block);
+    } catch {
+      return false;
+    }
+  }
+  return true;
+}
+
+function isBlockedHost(host) {
+  const lower = String(host || '').toLowerCase();
+  if (
+    lower === '169.254.169.254' ||
+    lower === '::ffff:169.254.169.254' ||
+    lower === '::ffff:a9fe:a9fe' ||
+    lower === 'fd00:ec2::254' ||
+    /(^|\.)metadata\.google\.internal\.?$/.test(lower)
+  ) return true;
+  return false;
+}
+
 function normalizeConnection(input) {
   const src = input && typeof input === 'object' ? input : {};
   let id = String(src.id || '').trim();
   if (!id) id = newId();
-  if (id === 'local') return { ok: false, message: '连接 ID "local" 为保留值' };
-  if (!/^[A-Za-z0-9_-]{1,64}$/.test(id)) return { ok: false, message: '连接 ID 只能包含字母、数字、-、_' };
+  if (id === 'local') return { ok: false, code: 'ID_RESERVED', message: '连接 ID "local" 为保留值' };
+  if (!/^[A-Za-z0-9_-]{1,64}$/.test(id)) return { ok: false, code: 'ID_INVALID', message: '连接 ID 只能包含字母、数字、-、_' };
 
   const name = String(src.name || '').trim().slice(0, 64) || 'Surge';
   const protocol = src.protocol || 'http';
-  if (!['http', 'https'].includes(protocol)) return { ok: false, message: '协议仅支持 HTTP 或 HTTPS' };
+  if (!['http', 'https'].includes(protocol)) return { ok: false, code: 'INVALID_PROTOCOL', message: '协议仅支持 HTTP 或 HTTPS' };
 
   let host = String(src.host || '').trim().toLowerCase();
   // Host and port are separate fields. Never silently strip URL credentials or paths.
   if (host.startsWith('[') && host.endsWith(']')) host = host.slice(1, -1);
-  if (!host || /[\s\\/@?#%]/.test(host)) return { ok: false, message: '主机仅填写域名或 IP，协议和端口请使用独立字段' };
+  if (!host || /[\s\\/@?#%]/.test(host)) return { ok: false, code: 'INVALID_HOST', message: '主机仅填写域名或 IP，协议和端口请使用独立字段' };
+  const rawHost = host;
   try {
     const parsed = new URL('http://' + (host.includes(':') ? '[' + host + ']' : host) + ':6171');
     if (parsed.hostname.replace(/^\[|\]$/g, '') !== host && host.includes(':')) host = parsed.hostname.slice(1, -1);
@@ -179,22 +238,22 @@ function normalizeConnection(input) {
     host = host.replace(/^\[|\]$/g, '');
     if (!/^[a-z0-9.:-]+$/.test(host)) throw new Error('invalid host');
   } catch {
-    return { ok: false, message: '主机地址不合法；请勿在主机字段附加端口' };
+    return { ok: false, code: 'INVALID_HOST', message: '主机地址不合法；请勿在主机字段附加端口' };
   }
-  if (host === '169.254.169.254' || /(^|\.)metadata\.google\.internal\.?$/.test(host)) {
-    return { ok: false, message: '该主机地址不允许' };
+  if (isBlockedHost(rawHost) || isBlockedHost(host)) {
+    return { ok: false, code: 'HOST_BLOCKED', message: '该主机地址不允许' };
   }
 
   const port = Number(src.port);
   if (!Number.isInteger(port) || port < 1 || port > 65535) {
-    return { ok: false, message: '端口须为 1–65535 的整数' };
+    return { ok: false, code: 'INVALID_PORT', message: '端口须为 1–65535 的整数' };
   }
   const platform = ['auto', 'ios', 'tvos', 'macos'].indexOf(src.platform) >= 0 ? src.platform : 'auto';
   const apiKey = String(src.apiKey || '');
-  if (apiKey.length > 512 || /[\r\n]/.test(apiKey)) return { ok: false, message: 'API 密钥格式不合法' };
+  if (apiKey.length > 512 || /[\r\n]/.test(apiKey)) return { ok: false, code: 'INVALID_API_KEY', message: 'API 密钥格式不合法' };
   const caCert = String(src.caCert || '').trim();
-  if (caCert.length > 16384 || (caCert && !/^-----BEGIN CERTIFICATE-----[\s\S]+-----END CERTIFICATE-----$/.test(caCert))) {
-    return { ok: false, message: 'CA 证书须为 PEM 格式，且不超过 16 KB' };
+  if (!isValidCaPem(caCert)) {
+    return { ok: false, code: 'INVALID_CA_CERT', message: 'CA 证书须为有效的 PEM 格式，且不超过 16 KB' };
   }
   return { ok: true, value: { id, name, protocol, host, port, apiKey, platform, caCert } };
 }
@@ -224,7 +283,7 @@ function redacted(c, activeId, isLocal) {
 
 function connectionViews(data) {
   const activeId = data.activeId || 'local';
-  const local = cachedEndpoint || localEndpoint();
+  const local = (cachedSelection === 'local' && cachedEndpoint) ? cachedEndpoint : localEndpoint();
   const views = [redacted({
     id: 'local', name: '本机 Surge', protocol: local && local.tls ? 'https' : 'http',
     host: '127.0.0.1', port: local ? local.port : 6171, platform: 'macos', apiKey: local ? local.key : ''
@@ -308,6 +367,10 @@ function cachedJSON(ep, path, ttl = 1000) {
     entry.promise = null;
     return entry.result;
   });
+  if (responseCache.size > 200) {
+    const oldest = responseCache.keys().next().value;
+    if (oldest !== undefined) responseCache.delete(oldest);
+  }
   responseCache.set(key, entry);
   return entry.promise;
 }
@@ -363,13 +426,41 @@ function buildSnapshot(raw, ep, data) {
     if (r.failed) connsFailed++;
     else if (!r.completed) conns++;
   }
+  const recentRequests = reqs.slice().sort(function (a, b) {
+    const rank = function (r) { return r.failed ? 2 : (!r.completed ? 1 : 0); };
+    const diff = rank(b) - rank(a);
+    if (diff !== 0) return diff;
+    return num(b.startDate) - num(a.startDate);
+  }).slice(0, 16).map(function (r, idx) {
+    const rawUrl = String(r.URL || r.url || r.remoteHost || r.remoteAddress || '').slice(0, 160);
+    return {
+      id: String(r.id != null ? r.id : idx),
+      target: rawUrl || '—',
+      policy: String(r.policyName || r.policy || '').slice(0, 64),
+      status: String(r.status || '').slice(0, 64),
+      failed: !!r.failed,
+      completed: !!r.completed,
+      inBytes: num(r.inBytes),
+      outBytes: num(r.outBytes)
+    };
+  });
 
   const dl = (devices.devices || []).filter(Boolean);
   const devBytes = function (d) {
     return num(d.inBytesStat && d.inBytesStat.total) + num(d.outBytesStat && d.outBytesStat.total);
   };
-  const maxDev = dl.reduce(function (max, device) { return Math.max(max, devBytes(device)); }, 1);
-  const dev = dl.slice(0, 16).map(function (d) {
+  const devSpeed = function (d) {
+    return num(d.currentInSpeed) + num(d.currentOutSpeed);
+  };
+  const sortedDevices = dl.slice().sort(function (a, b) {
+    const spDiff = devSpeed(b) - devSpeed(a);
+    if (spDiff !== 0) return spDiff;
+    const btDiff = devBytes(b) - devBytes(a);
+    if (btDiff !== 0) return btDiff;
+    return String(a.displayIPAddress || a.name || '').localeCompare(String(b.displayIPAddress || b.name || ''));
+  });
+  const maxDev = sortedDevices.reduce(function (max, device) { return Math.max(max, devBytes(device)); }, 1);
+  const dev = sortedDevices.slice(0, 16).map(function (d, idx) {
     const ico = String(d.dhcpIcon || '');
     let icon = 'laptop';
     if (/iPhone|Mobile|Android|phone/i.test(ico)) icon = 'phone';
@@ -380,20 +471,28 @@ function buildSnapshot(raw, ep, data) {
     const friendly = parts.length ? parts[parts.length - 1] : '';
     const ip = String(d.displayIPAddress || d.name || '');
     const name = (friendly && !/^B\d+$/.test(friendly)) ? friendly + ' · ' + ip : (d.name || ip || 'device');
+    const bytes = devBytes(d);
     return {
+      key: String(d.identifier || ip || d.name || idx),
       icon: icon, name: name, ip: ip,
-      load: Math.min(1, devBytes(d) / maxDev),
-      speed: num(d.currentInSpeed) + num(d.currentOutSpeed)
+      bytes: bytes,
+      load: Math.min(1, bytes / maxDev),
+      speed: devSpeed(d)
     };
   });
 
   const conn = traffic.connector || {};
   const nodeList = Object.keys(conn).map(function (k) {
-    return { name: k, bytes: num(conn[k] && conn[k].in) + num(conn[k] && conn[k].out) };
-  }).sort(function (a, b) { return b.bytes - a.bytes; }).slice(0, 4);
+    const c = conn[k] || {};
+    return {
+      name: k,
+      bytes: num(c.in) + num(c.out),
+      speed: num(c.inCurrentSpeed) + num(c.outCurrentSpeed)
+    };
+  }).sort(function (a, b) { return b.bytes - a.bytes; }).slice(0, 12);
   const maxNode = Math.max.apply(null, [1].concat(nodeList.map(function (n) { return n.bytes; })));
   const nodes = nodeList.map(function (n) {
-    return { name: n.name, bytes: n.bytes, share: Math.round(n.bytes / maxNode * 100) };
+    return { name: n.name, bytes: n.bytes, speed: n.speed, share: Math.round(n.bytes / maxNode * 100) };
   });
 
   const ev = (events.events || []).filter(Boolean).slice(0, 12).map(function (e) {
@@ -403,10 +502,22 @@ function buildSnapshot(raw, ep, data) {
     if (ty >= 3 || /error|fatal|refused|fail|超时|错误/i.test(content)) tone = 'error';
     else if (ty === 2 || /warn/i.test(content)) tone = 'warn';
     else if (ty === 1) tone = 'brand';
+    const rawDate = String(e.date || '');
+    let timestamp = null;
     let time = '';
-    const m = /T(\d{2}):(\d{2})/.exec(String(e.date || ''));
-    if (m) time = m[1] + ':' + m[2];
-    return { time: time, text: content, tone: tone };
+    if (/(?:Z|[+-]\d{2}:?\d{2})$/i.test(rawDate)) {
+      const parsed = Date.parse(rawDate);
+      if (isFinite(parsed)) {
+        timestamp = parsed;
+        const dt = new Date(parsed);
+        time = String(dt.getHours()).padStart(2, '0') + ':' + String(dt.getMinutes()).padStart(2, '0');
+      }
+    }
+    if (!time) {
+      const m = /T(\d{2}):(\d{2})/.exec(rawDate);
+      if (m) time = m[1] + ':' + m[2];
+    }
+    return { time: time, timestamp: timestamp, text: content, tone: tone };
   });
 
   const sel = data.activeId || 'local';
@@ -422,6 +533,7 @@ function buildSnapshot(raw, ep, data) {
     uptime: uptime,
     conns: conns,
     connsFailed: connsFailed,
+    recentRequests: recentRequests,
     mode: String(outbound.mode || ''),
     apiPort: ep.port,
     profile: String(profile.name || 'Surge'),
@@ -440,10 +552,21 @@ function buildSnapshot(raw, ep, data) {
   };
 }
 
+function activeConnectionView(data, ep) {
+  const sel = (data && data.activeId) || 'local';
+  const list = (data && data.connections) || [];
+  const active = list.find(function (c) { return c.id === sel && c.id !== 'local'; });
+  if (active) {
+    return { id: active.id, name: active.name, host: active.host, port: active.port, local: false };
+  }
+  const localPort = (ep && ep.port) || (cachedSelection === 'local' && cachedEndpoint && cachedEndpoint.port) || 0;
+  return { id: 'local', name: '本机 Surge', host: '127.0.0.1', port: localPort, local: true };
+}
+
 /* -------------------------------------------------------------------------- *
  * HTTP plumbing.
  * -------------------------------------------------------------------------- */
-function json(res, status, body) {
+function json(res, status, body, req) {
   if (res.writableEnded || res.destroyed) return;
   let data;
   try { data = Buffer.from(JSON.stringify(body)); }
@@ -453,7 +576,7 @@ function json(res, status, body) {
     'content-length': data.length,
     'cache-control': 'no-store'
   });
-  res.end(data);
+  res.end(req && req.method === 'HEAD' ? undefined : data);
 }
 
 function guard(req, res, methods) {
@@ -526,7 +649,8 @@ function validEndpointData(key, data) {
 
 async function collectSnapshot(data, revision) {
   const ep = await resolveEndpoint(data, revision);
-  if (!ep) return { ok: false, code: 'NO_GATEWAY', message: '未找到可用的 Surge HTTP API，请检查当前连接；HTTPS 自签证书需在连接中配置受信任 CA。' };
+  const activeConnection = activeConnectionView(data, ep);
+  if (!ep) return { ok: false, code: 'NO_GATEWAY', activeConnection: activeConnection, message: '未找到可用的 Surge HTTP API，请检查当前连接；HTTPS 自签证书需在连接中配置受信任 CA。' };
   const keys = Object.keys(ENDPOINTS);
   const results = await Promise.all(keys.map(async function (key) {
     return [key, await cachedJSON(ep, ENDPOINTS[key], SLOW_ENDPOINTS.has(key) ? 60000 : 1000)];
@@ -538,7 +662,7 @@ async function collectSnapshot(data, revision) {
   }
   if (!endpoints.traffic.ok) {
     cachedEndpoint = null;
-    return { ok: false, code: 'API_ERROR', message: 'Surge 流量 API 不可用，请检查连接或运行 API 诊断。' };
+    return { ok: false, code: 'API_ERROR', activeConnection: activeConnection, detail: endpoints.traffic.message || '', message: 'Surge 流量 API 不可用，请检查连接或运行 API 诊断。' };
   }
   const snapshot = buildSnapshot(raw, ep, data);
   snapshot.endpoints = endpoints;
@@ -547,7 +671,7 @@ async function collectSnapshot(data, revision) {
   return { ok: true, snapshot };
 }
 
-async function buildResponse(res) {
+async function buildResponse(res, req) {
   const revision = connectionRevision;
   let job = snapshotJobs.get(revision);
   if (!job) {
@@ -557,32 +681,32 @@ async function buildResponse(res) {
   }
   const body = await job;
   if (revision !== connectionRevision) {
-    json(res, 409, { ok: false, code: 'CONNECTION_CHANGED', message: '连接已切换，请重新刷新。' });
+    json(res, 409, { ok: false, code: 'CONNECTION_CHANGED', message: '连接已切换，请重新刷新。' }, req);
     return;
   }
-  json(res, 200, body);
+  json(res, 200, body, req);
 }
 
 /* ---- Route handlers ---- */
 function handleSnapshot(req, res) {
   if (!guard(req, res, ['GET', 'HEAD'])) return;
-  void buildResponse(res).catch(function (e) {
-    json(res, 500, { ok: false, message: String((e && e.message) || e).slice(0, 200) });
+  void buildResponse(res, req).catch(function (e) {
+    json(res, 500, { ok: false, message: String((e && e.message) || e).slice(0, 200) }, req);
   });
 }
 
 function handleConnectionsList(req, res) {
   if (!guard(req, res, ['GET', 'HEAD'])) return;
   const data = loadConnections();
-  json(res, 200, { ok: true, connections: connectionViews(data), activeId: data.activeId || 'local' });
+  json(res, 200, { ok: true, connections: connectionViews(data), activeId: data.activeId || 'local' }, req);
 }
 
 async function handleConnectionSave(req, res) {
   if (!guard(req, res, ['POST'])) return;
   const body = await readBody(req);
-  if (!body.ok) { json(res, 400, { ok: false, message: body.message }); return; }
+  if (!body.ok) { json(res, 400, { ok: false, code: 'BAD_BODY', message: body.message }); return; }
   const norm = normalizeConnection(body.data.connection || body.data);
-  if (!norm.ok) { json(res, 400, { ok: false, message: norm.message }); return; }
+  if (!norm.ok) { json(res, 400, { ok: false, code: norm.code || 'VALIDATION_ERROR', message: norm.message }); return; }
   const data = connectionCopy();
   const idx = data.connections.findIndex(function (c) { return c.id === norm.value.id; });
   if (idx >= 0) {
@@ -591,21 +715,24 @@ async function handleConnectionSave(req, res) {
     if (!norm.value.apiKey) norm.value.apiKey = data.connections[idx].apiKey;
     data.connections[idx] = norm.value;
   } else {
-    if (data.connections.length >= 100) { json(res, 400, { ok: false, message: '最多保存 100 个连接' }); return; }
+    if (data.connections.length >= 100) { json(res, 400, { ok: false, code: 'MAX_CONNECTIONS', message: '最多保存 100 个连接' }); return; }
     data.connections.push(norm.value);
   }
+  if (body.data.activate === true) data.activeId = norm.value.id;
   saveConnections(data);
-  json(res, 200, { ok: true, connections: connectionViews(data), activeId: data.activeId || 'local' });
+  json(res, 200, { ok: true, id: norm.value.id, connections: connectionViews(data), activeId: data.activeId || 'local' });
 }
 
 async function handleConnectionDelete(req, res) {
   if (!guard(req, res, ['POST'])) return;
   const body = await readBody(req);
-  if (!body.ok) { json(res, 400, { ok: false, message: body.message }); return; }
+  if (!body.ok) { json(res, 400, { ok: false, code: 'BAD_BODY', message: body.message }); return; }
   const id = String(body.data.id || '');
-  if (!id || id === 'local') { json(res, 400, { ok: false, message: '本机连接不可删除' }); return; }
+  if (!id || id === 'local') { json(res, 400, { ok: false, code: 'LOCAL_NOT_DELETABLE', message: '本机连接不可删除' }); return; }
   const data = connectionCopy();
-  data.connections = data.connections.filter(function (c) { return c.id !== id; });
+  const idx = data.connections.findIndex(function (c) { return c.id === id; });
+  if (idx < 0) { json(res, 404, { ok: false, code: 'CONNECTION_NOT_FOUND', message: '连接不存在' }); return; }
+  data.connections.splice(idx, 1);
   if (data.activeId === id) data.activeId = 'local';
   saveConnections(data);
   json(res, 200, { ok: true, connections: connectionViews(data), activeId: data.activeId });
@@ -614,11 +741,11 @@ async function handleConnectionDelete(req, res) {
 async function handleConnectionActivate(req, res) {
   if (!guard(req, res, ['POST'])) return;
   const body = await readBody(req);
-  if (!body.ok) { json(res, 400, { ok: false, message: body.message }); return; }
+  if (!body.ok) { json(res, 400, { ok: false, code: 'BAD_BODY', message: body.message }); return; }
   const id = String(body.data.id || 'local');
   const data = connectionCopy();
   if (id !== 'local' && !data.connections.some(function (c) { return c.id === id; })) {
-    json(res, 400, { ok: false, message: '连接不存在' }); return;
+    json(res, 404, { ok: false, code: 'CONNECTION_NOT_FOUND', message: '连接不存在' }); return;
   }
   data.activeId = id;
   saveConnections(data);
@@ -628,7 +755,7 @@ async function handleConnectionActivate(req, res) {
 async function handleConnectionTest(req, res) {
   if (!guard(req, res, ['POST'])) return;
   const body = await readBody(req);
-  if (!body.ok) { json(res, 400, { ok: false, message: body.message }); return; }
+  if (!body.ok) { json(res, 400, { ok: false, code: 'BAD_BODY', message: body.message }); return; }
   const data = loadConnections();
   let ep = null;
   const byId = String(body.data.id || '');
@@ -644,17 +771,24 @@ async function handleConnectionTest(req, res) {
         return s ? s.apiKey : '';
       })()
     }));
-    if (!norm.ok) { json(res, 400, { ok: false, message: norm.message }); return; }
+    if (!norm.ok) { json(res, 400, { ok: false, code: norm.code || 'VALIDATION_ERROR', message: norm.message }); return; }
     ep = connectionToEndpoint(norm.value);
   }
-  if (!ep) { json(res, 200, { ok: false, message: '缺少连接信息或 API 密钥' }); return; }
+  if (!ep) {
+    const code = byId === 'local' ? 'LOCAL_NOT_FOUND' : 'MISSING_CONNECTION';
+    json(res, 200, { ok: false, code: code, message: byId === 'local' ? '未发现本机 Surge HTTP API' : '缺少连接信息或 API 密钥' });
+    return;
+  }
   const t0 = Date.now();
   const probe = await getJSON(ep, '/v1/outbound', 2500);
   const rtt = Date.now() - t0;
+  const detail = probe.ok ? '' : (probe.message || ('HTTP ' + probe.status));
   json(res, 200, {
     ok: probe.ok, rtt: rtt,
+    code: probe.ok ? 'TEST_OK' : 'TEST_FAILED',
+    detail: detail,
     mode: probe.ok ? String((probe.data && probe.data.mode) || '') : '',
-    message: probe.ok ? '连接成功' : ('连接失败：' + (probe.message || ('HTTP ' + probe.status)))
+    message: probe.ok ? '连接成功' : ('连接失败：' + detail)
   });
 }
 
@@ -676,6 +810,7 @@ async function probeFleetOne(view) {
       id: view.id, name: view.name, host: view.host, port: view.port,
       active: view.active, isLocal: view.isLocal, online: false, rtt: 0,
       down: 0, up: 0, conns: 0, mode: '',
+      code: view.isLocal ? 'LOCAL_NOT_FOUND' : 'MISSING_CONNECTION',
       message: view.isLocal ? '未发现本机 Surge HTTP API' : '缺少连接信息或 API 密钥'
     };
   }
@@ -688,16 +823,20 @@ async function probeFleetOne(view) {
   const rtt = Date.now() - t0;
   const base = { id: view.id, name: view.name, host: view.host, port: view.port, active: view.active, isLocal: view.isLocal, rtt: rtt };
   if (!tr.ok) {
-    return Object.assign(base, { online: false, down: 0, up: 0, conns: 0, mode: '', message: 'API 无响应：' + (tr.message || ('HTTP ' + tr.status)) });
+    const detail = tr.message || ('HTTP ' + tr.status);
+    return Object.assign(base, { online: false, down: 0, up: 0, conns: 0, mode: '', code: 'API_UNREACHABLE', detail: detail, message: 'API 无响应：' + detail });
   }
   const sp = speedOf(tr);
   let conns = 0;
   const reqs = (rq.ok && rq.data && rq.data.requests) || [];
   for (const r of reqs) if (r && !r.failed && !r.completed) conns++;
+  const missing = [!rq.ok ? 'requests' : '', !ob.ok ? 'outbound' : ''].filter(Boolean);
   return Object.assign(base, {
     online: true, down: sp.down, up: sp.up, conns: conns,
     mode: ob.ok ? String((ob.data && ob.data.mode) || '') : '',
     connsAvailable: rq.ok, modeAvailable: ob.ok,
+    code: missing.length ? 'PARTIAL_DATA' : '',
+    missing: missing,
     message: [!rq.ok ? '活动请求不可用' : '', !ob.ok ? '出站模式不可用' : ''].filter(Boolean).join('；')
   });
 }
@@ -719,22 +858,24 @@ async function handleFleet(req, res) {
   const revision = connectionRevision;
   const views = connectionViews(loadConnections());
   const fleet = await mapLimited(views, 4, probeFleetOne);
-  if (revision !== connectionRevision) { json(res, 409, { ok: false, code: 'CONNECTION_CHANGED', message: '连接已变更，请刷新设备列表' }); return; }
+  if (revision !== connectionRevision) { json(res, 409, { ok: false, code: 'CONNECTION_CHANGED', message: '连接已变更，请刷新设备列表' }, req); return; }
   const totals = { online: 0, total: fleet.length, down: 0, up: 0, conns: 0, connsComplete: true };
   for (const f of fleet) {
     if (f.online) totals.online++;
     if (!f.online || !f.connsAvailable) totals.connsComplete = false;
     totals.down += f.down; totals.up += f.up; totals.conns += f.conns;
   }
-  json(res, 200, { ok: true, fleet: fleet, totals: totals });
+  json(res, 200, { ok: true, fleet: fleet, totals: totals }, req);
 }
 
 async function handleDiagnostics(req, res) {
   if (!guard(req, res, ['GET', 'HEAD'])) return;
   const revision = connectionRevision;
-  const ep = await resolveEndpoint();
+  const data = connectionCopy();
+  const ep = await resolveEndpoint(data, revision);
+  const activeConnection = activeConnectionView(data, ep);
   if (!ep) {
-    json(res, 200, { ok: false, code: 'NO_GATEWAY', message: '未找到可用的 Surge 网关，无法运行诊断。' });
+    json(res, 200, { ok: false, code: 'NO_GATEWAY', activeConnection: activeConnection, message: '未找到可用的 Surge 网关，无法运行诊断。' }, req);
     return;
   }
   const keys = Object.keys(ENDPOINTS);
@@ -748,12 +889,13 @@ async function handleDiagnostics(req, res) {
       shape: r.ok ? describeShape(r.data) : (r.message || 'HTTP ' + r.status)
     };
   }));
-  if (revision !== connectionRevision) { json(res, 409, { ok: false, code: 'CONNECTION_CHANGED', message: '连接已切换，请重新运行诊断' }); return; }
+  if (revision !== connectionRevision) { json(res, 409, { ok: false, code: 'CONNECTION_CHANGED', message: '连接已切换，请重新运行诊断' }, req); return; }
   json(res, 200, {
     ok: true,
+    activeConnection: activeConnection,
     endpoint: { base: ep.base.replace(/^https?:\/\//, ''), port: ep.port, tls: !!ep.tls },
     checks: checks
-  });
+  }, req);
 }
 
 /* -------------------------------------------------------------------------- *
@@ -775,7 +917,7 @@ const ROUTES = [
 function wrap(handler) {
   return function (req, res) {
     void Promise.resolve().then(function () { return handler(req, res); }).catch(function (e) {
-      json(res, 500, { ok: false, message: String((e && e.message) || e).slice(0, 200) });
+      json(res, 500, { ok: false, message: String((e && e.message) || e).slice(0, 200) }, req);
     });
   };
 }
@@ -788,7 +930,10 @@ export function apply(ctx) {
       const offs = ROUTES.map(function (pair) {
         return webServer.register({ kind: 'exact', path: pair[0], handler: wrap(pair[1]) });
       });
-      return function () { offs.forEach(function (off) { try { if (typeof off === 'function') off(); } catch (e) { /* noop */ } }); };
+      return function () {
+        resetRuntimeState();
+        offs.forEach(function (off) { try { if (typeof off === 'function') off(); } catch (e) { /* noop */ } });
+      };
     }, 'surge-panel: api routes');
   });
 }

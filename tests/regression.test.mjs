@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { EventEmitter } from 'node:events';
-import { randomBytes } from 'node:crypto';
+import { randomBytes, X509Certificate } from 'node:crypto';
 import { join, dirname } from 'node:path';
 import vm from 'node:vm';
 
@@ -11,6 +11,7 @@ import vm from 'node:vm';
 const hostSource = readFileSync(new URL('../index.js', import.meta.url), 'utf8')
   .replace(/^import[\s\S]*?from '[^']+';\n/gm, '').replace(/^export /gm, '');
 const clientSource = readFileSync(new URL('../client.js', import.meta.url), 'utf8');
+const pkgJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
 const conn = (id, host = id + '.local') => ({ id, name: id, host, port: 6171, protocol: 'http', apiKey: 'test-only', platform: 'auto' });
 const dataFor = path => ({
   '/v1/traffic': { interface: { all: { inCurrentSpeed: 10, outCurrentSpeed: 3, in: 100, out: 20 } }, startTime: 1700000000, connector: {} },
@@ -21,8 +22,10 @@ const dataFor = path => ({
 })[path];
 const deferred = () => { let resolve; const promise = new Promise(r => { resolve = r; }); return { promise, resolve }; };
 
-function hostHarness(initial = { activeId: 'a', connections: [conn('a'), conn('b')] }) {
+function hostHarness(initial = { activeId: 'a', connections: [conn('a'), conn('b')] }, opts = {}) {
   const files = new Map([['/test/.dsh/surge-panel-connections.json', JSON.stringify(initial)]]);
+  if (opts.extraFiles) for (const [k, v] of Object.entries(opts.extraFiles)) files.set(k, v);
+  const dirs = opts.dirs || {};
   const operations = [];
   let clock = 1700000010000;
   let storageError = '';
@@ -44,10 +47,13 @@ function hostHarness(initial = { activeId: 'a', connections: [conn('a'), conn('b
     return request;
   } };
   const context = vm.createContext({
-    Buffer, URL, setTimeout, clearTimeout, randomBytes, join, dirname, homedir: () => '/test',
+    Buffer, URL, setTimeout, clearTimeout, randomBytes, X509Certificate, join, dirname, homedir: () => '/test',
     Date: class extends Date { static now() { return clock; } },
     http: transport, https: transport,
-    readdirSync: () => [], existsSync: () => true, mkdirSync() {},
+    readdirSync: (dir) => dirs[dir] || [],
+    statSync: (p) => ({ mtimeMs: (opts.mtimes && opts.mtimes[p]) || 0 }),
+    existsSync: (p) => files.has(p) || Object.prototype.hasOwnProperty.call(dirs, p) || p.endsWith('.dsh'),
+    mkdirSync() {},
     readFileSync(path) { if (!files.has(path)) throw Object.assign(new Error('missing'), { code: 'ENOENT' }); return files.get(path); },
     writeFileSync(path, value, options) {
       operations.push(['write', options]);
@@ -61,7 +67,7 @@ function hostHarness(initial = { activeId: 'a', connections: [conn('a'), conn('b
     },
     unlinkSync(path) { files.delete(path); }
   });
-  vm.runInContext(hostSource + '\nglobalThis.subject = { getJSON, cachedJSON, loadConnections, connectionCopy, saveConnections, normalizeConnection, connectionToEndpoint, buildResponse, buildSnapshot, readBody, wrap, mapLimited, handleConnectionSave, handleConnectionDelete, handleConnectionActivate, guard };', context);
+  vm.runInContext(hostSource + '\nglobalThis.subject = { getJSON, cachedJSON, loadConnections, connectionCopy, saveConnections, normalizeConnection, connectionToEndpoint, buildResponse, buildSnapshot, readBody, wrap, mapLimited, handleConnectionsList, handleConnectionSave, handleConnectionDelete, handleConnectionActivate, handleConnectionTest, handleFleet, handleDiagnostics, discover, resetRuntimeState, guard };', context);
   return {
     ...context.subject, context, files, operations,
     setResponder(fn) { responder = fn; }, advance(ms) { clock += ms; }, failStorage(stage) { storageError = stage; },
@@ -69,7 +75,7 @@ function hostHarness(initial = { activeId: 'a', connections: [conn('a'), conn('b
   };
 }
 function responseSink() {
-  return { status: 0, body: null, writeHead(status) { this.status = status; }, end(value) { this.body = JSON.parse(value.toString()); }, setHeader() {} };
+  return { status: 0, body: null, rawEnded: false, writeHead(status) { this.status = status; }, end(value) { this.rawEnded = true; this.body = value == null || value === '' ? null : JSON.parse(value.toString()); }, setHeader() {} };
 }
 function jsonRequest(data) {
   const request = new EventEmitter();
@@ -280,4 +286,147 @@ test('polling stops while hidden, paused and disposed, and leaves only one timer
   dispose(); assert.equal(timers.size, 0); assert.equal(listener, null);
   const before = fetches; const disposePaused = client.startPolling(store, { paused: true, refreshMs: 5000 }, document);
   await Promise.resolve(); assert.equal(fetches, before); disposePaused();
+});
+
+test('host validation rejects IPv6-mapped metadata hosts and malformed PEM certificates', () => {
+  const host = hostHarness();
+  for (const name of ['::ffff:169.254.169.254', '[::ffff:169.254.169.254]', '::ffff:a9fe:a9fe', 'metadata.google.internal']) {
+    const res = host.normalizeConnection(conn('a', name));
+    assert.equal(res.ok, false, name);
+    assert.equal(res.code, 'HOST_BLOCKED');
+  }
+  const badPem = '-----BEGIN CERTIFICATE-----\nnot-valid-der\n-----END CERTIFICATE-----';
+  const pemRes = host.normalizeConnection({ ...conn('a'), caCert: badPem });
+  assert.equal(pemRes.ok, false);
+  assert.equal(pemRes.code, 'INVALID_CA_CERT');
+});
+
+test('connection routes handle list, delete 404, save+activate, test, fleet, diagnostics and HEAD', async () => {
+  const host = hostHarness();
+  host.stubGet(async (ep, path) => ({ ok: true, status: 200, data: dataFor(path) }));
+
+  // List (GET and HEAD)
+  const listRes = responseSink();
+  host.handleConnectionsList({ method: 'GET', headers: {} }, listRes);
+  assert.equal(listRes.status, 200);
+  assert.equal(listRes.body.ok, true);
+  assert.equal(listRes.body.connections.length, 3);
+  assert.equal(listRes.body.connections[0].id, 'local');
+
+  const headRes = responseSink();
+  host.handleConnectionsList({ method: 'HEAD', headers: {} }, headRes);
+  assert.equal(headRes.status, 200);
+  assert.equal(headRes.rawEnded, true);
+  assert.equal(headRes.body, null);
+
+  // Delete missing id returns 404 without writing
+  const opsBefore = host.operations.length;
+  const delMissing = responseSink();
+  await host.handleConnectionDelete(jsonRequest({ id: 'does-not-exist' }), delMissing);
+  assert.equal(delMissing.status, 404);
+  assert.equal(delMissing.body.code, 'CONNECTION_NOT_FOUND');
+  assert.equal(host.operations.length, opsBefore);
+
+  // Save with activate: true creates and activates in one call
+  const saveRes = responseSink();
+  await host.handleConnectionSave(jsonRequest({ connection: { name: 'Gateway C', host: 'c.local', port: 6171, protocol: 'http', apiKey: 'key-c', platform: 'macos' }, activate: true }), saveRes);
+  assert.equal(saveRes.status, 200);
+  assert.equal(saveRes.body.ok, true);
+  assert.equal(saveRes.body.activeId, saveRes.body.id);
+
+  // Connection test returns structured TEST_OK
+  const testRes = responseSink();
+  await host.handleConnectionTest(jsonRequest({ id: saveRes.body.id }), testRes);
+  assert.equal(testRes.status, 200);
+  assert.equal(testRes.body.ok, true);
+  assert.equal(testRes.body.code, 'TEST_OK');
+
+  // Fleet aggregates saved + local
+  const fleetRes = responseSink();
+  await host.handleFleet({ method: 'GET', headers: {} }, fleetRes);
+  assert.equal(fleetRes.status, 200);
+  assert.equal(fleetRes.body.ok, true);
+  assert.equal(fleetRes.body.fleet.length, 4);
+
+  // Diagnostics inspects all endpoints
+  const diagRes = responseSink();
+  await host.handleDiagnostics({ method: 'GET', headers: {} }, diagRes);
+  assert.equal(diagRes.status, 200);
+  assert.equal(diagRes.body.ok, true);
+  assert.equal(diagRes.body.checks.length, 10);
+  assert.ok(diagRes.body.checks.every(c => c.ok));
+});
+
+test('discover sorts candidates by most recently modified profile first', () => {
+  const dir = '/test/Library/Application Support/Surge/Profiles';
+  const host = hostHarness({ activeId: 'local', connections: [] }, {
+    dirs: { [dir]: ['older.conf', 'newer.conf'] },
+    mtimes: { [dir + '/older.conf']: 1000, [dir + '/newer.conf']: 2000 },
+    extraFiles: {
+      [dir + '/older.conf']: '[General]\nhttp-api = secret1@0.0.0.0:6171\n',
+      [dir + '/newer.conf']: '[General]\nhttp-api = secret2@127.0.0.1:6172\n'
+    }
+  });
+  const found = host.discover();
+  assert.equal(found.length, 2);
+  assert.equal(found[0].file, 'newer.conf');
+  assert.equal(found[0].port, 6172);
+  assert.equal(found[1].file, 'older.conf');
+  host.resetRuntimeState();
+});
+
+test('buildSnapshot sorts devices by live speed then total bytes and includes recentRequests', () => {
+  const host = hostHarness();
+  const snap = host.buildSnapshot({
+    traffic: dataFor('/v1/traffic'),
+    outbound: { mode: 'rule' },
+    requests: {
+      requests: [
+        { id: 1, URL: 'https://ok.example/a', policyName: 'DIRECT', status: 'Completed', completed: true, failed: false, inBytes: 100, outBytes: 20 },
+        { id: 2, URL: 'https://fail.example/b', policyName: 'PROXY', status: 'Failed', completed: true, failed: true, notes: ['Timeout'] }
+      ]
+    },
+    devices: {
+      devices: [
+        { name: 'IdleBig', displayIPAddress: '10.0.0.2', identifier: 'id-big', currentInSpeed: 0, currentOutSpeed: 0, inBytesStat: { total: 50000 }, outBytesStat: { total: 0 } },
+        { name: 'ActiveSmall', displayIPAddress: '10.0.0.3', identifier: 'id-active', currentInSpeed: 800, currentOutSpeed: 200, inBytesStat: { total: 1000 }, outBytesStat: { total: 0 } },
+        { name: 'IdleSmall', displayIPAddress: '10.0.0.4', identifier: 'id-small', currentInSpeed: 0, currentOutSpeed: 0, inBytesStat: { total: 500 }, outBytesStat: { total: 0 } }
+      ]
+    },
+    events: { events: [] }, policies: {}, modules: {}, rules: {}, dns: {}, profile: { name: 'Main' }
+  }, { host: '127.0.0.1', port: 6171, tls: false, local: true }, { activeId: 'local', connections: [] });
+  assert.equal(snap.devices[0].name, 'ActiveSmall');
+  assert.equal(snap.devices[0].key, 'id-active');
+  assert.equal(snap.devices[0].speed, 1000);
+  assert.equal(snap.devices[1].name, 'IdleBig');
+  assert.equal(snap.devices[2].name, 'IdleSmall');
+  assert.equal(snap.recentRequests.length, 2);
+  assert.equal(snap.recentRequests[0].failed, true);
+  assert.equal(snap.recentRequests[0].target, 'https://fail.example/b');
+});
+
+test('version, i18n dictionaries and package.json files whitelist stay in sync', () => {
+  const verMatch = clientSource.match(/const VERSION = '([^']+)'/);
+  assert.ok(verMatch, 'VERSION constant exists in client.js');
+  assert.equal(verMatch[1], pkgJson.version);
+
+  const dictCtx = vm.createContext({});
+  const zhStart = clientSource.indexOf('    const zh = {');
+  const dictsEnd = clientSource.indexOf('    const dicts = {', zhStart);
+  vm.runInContext(clientSource.slice(zhStart, dictsEnd) + '\nglobalThis.zh = zh; globalThis.en = en;', dictCtx);
+  const zhKeys = Object.keys(dictCtx.zh).sort();
+  const enKeys = Object.keys(dictCtx.en).sort();
+  assert.deepEqual(zhKeys, enKeys, 'zh and en dictionary keys match exactly');
+
+  // Every static t('...') key referenced in client.js exists in both dictionaries
+  const staticKeys = new Set();
+  for (const m of clientSource.matchAll(/\bt\('([a-zA-Z0-9._-]+)'\)/g)) staticKeys.add(m[1]);
+  for (const key of staticKeys) {
+    assert.ok(Object.prototype.hasOwnProperty.call(dictCtx.zh, key), `zh missing key: ${key}`);
+    assert.ok(Object.prototype.hasOwnProperty.call(dictCtx.en, key), `en missing key: ${key}`);
+  }
+
+  // Package whitelist must not pack the entire docs directory or local layout captures
+  assert.equal(pkgJson.files.includes('docs'), false);
+  assert.equal(pkgJson.files.some(f => f.includes('layout-check')), false);
 });

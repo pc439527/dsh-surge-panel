@@ -15,3 +15,6 @@ surge-panel-connections.json.*
 # Original layout captures contain private network addresses.
 # Publish only flattened, redacted derivatives in docs/images/.
 docs/layout-check-*.png
+
+# Local promotional / scratch media workspace
+video/

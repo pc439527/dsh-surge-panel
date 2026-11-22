@@ -1,6 +1,6 @@
 {
   "name": "@local/dsh-surge-panel",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "private": true,
   "scripts": {
     "check": "node --check index.js && node --check client.js",
@@ -19,7 +19,10 @@
     "client.js",
     "cordis.patch.yml",
     "locale/*.json",
-    "docs",
+    "docs/DETAIL.md",
+    "docs/DETAIL.zh.md",
+    "docs/preview.svg",
+    "docs/preview.zh.svg",
     "icon.svg"
   ],
   "dsh": {
