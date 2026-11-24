@@ -36,7 +36,7 @@ window.__ModuleLoader__.load({
 
     const NS = 'surgePanel';
     const PANEL_ID = 'surge-monitor';
-    const VERSION = '1.1.2';
+    const VERSION = '1.2.0';
 
     /* ------------------------------------------------------------------ *
      * Dictionaries. zh + en are the baselines; every other UI locale falls
@@ -226,6 +226,16 @@ window.__ModuleLoader__.load({
       'st.connection.desc': '概览数据来自此实例；可在「设备管理」中切换。',
       'st.diagnostics': 'API 诊断',
       'st.diagnostics.desc': '逐端点检查 Surge HTTP API 的状态、延迟与响应结构，用于排查连接问题。',
+      'chart.keyboard': '使用方向键浏览采样点，Home 和 End 跳到首尾，Esc 关闭提示。',
+      'st.diag.httpStatus': 'HTTP 状态',
+      'st.diag.noResponse': '未收到 HTTP 响应',
+      'st.diag.message': '诊断消息',
+      'st.diag.noMessage': '无诊断消息',
+      'st.diag.noChecks': '没有端点诊断结果。',
+      'st.diag.details': '诊断详情',
+      'st.diag.copy': '复制诊断结果',
+      'st.diag.copied': '已复制诊断结果。',
+      'st.diag.copyFailed': '无法写入剪贴板，请手动复制下方内容。',
       'st.diag.run': '运行诊断',
       'st.diag.running': '正在诊断…',
       'st.diag.endpoint': '端点',
@@ -431,6 +441,16 @@ window.__ModuleLoader__.load({
       'st.connection.desc': 'Overview data comes from this instance; switch it in Devices.',
       'st.diagnostics': 'API diagnostics',
       'st.diagnostics.desc': 'Check each Surge HTTP API endpoint for status, latency and response shape.',
+      'chart.keyboard': 'Use the arrow keys to browse samples, Home and End to jump to either end, and Escape to close the tooltip.',
+      'st.diag.httpStatus': 'HTTP status',
+      'st.diag.noResponse': 'No HTTP response',
+      'st.diag.message': 'Diagnostic message',
+      'st.diag.noMessage': 'No diagnostic message',
+      'st.diag.noChecks': 'No endpoint results were returned.',
+      'st.diag.details': 'Diagnostic details',
+      'st.diag.copy': 'Copy diagnostics',
+      'st.diag.copied': 'Diagnostics copied.',
+      'st.diag.copyFailed': 'Clipboard access failed. Copy the report below manually.',
       'st.diag.run': 'Run diagnostics',
       'st.diag.running': 'Running…',
       'st.diag.endpoint': 'Endpoint',
@@ -452,6 +472,33 @@ window.__ModuleLoader__.load({
       'st.typeValue': 'DSH-native plugin (Host + Client)',
       'st.sourceValue': 'Surge HTTP API · real data'
     };
+    const detailLabels = {
+      zh: {
+        open: '查看详情', all: '全部', close: '关闭', search: '搜索', filter: '筛选', previous: '上一页', next: '下一页',
+        copy: '复制', copied: '已复制', copyError: '无法访问剪贴板，请手动复制', empty: '暂无条目',
+        type: '类型', value: '值', policy: '策略', selected: '当前选择', policyCount: '成员数', enabled: '启用', disabled: '停用',
+        domain: '域名', address: '地址', ttl: 'TTL（秒）', target: '目标', status: '状态', failed: '失败', active: '活动中',
+        completed: '已完成', group: '策略组', proxy: '代理', rule: '规则', error: '错误', warn: '警告', brand: '信息', idle: '普通',
+        timestamp: '时间', startDate: '开始时间', ip: 'IP 地址', inBytes: '下载累计', outBytes: '上传累计',
+        inSpeed: '下载速率', outSpeed: '上传速率', name: '名称', yes: '是', no: '否', online: '在线实例', offline: '离线实例',
+        mode: '出站模式', rtt: 'API 延迟', conns: '活动请求', event: '事件详情', checkedAt: '探测时间', activate: '设为当前并查看概览',
+        switchError: '切换连接失败', loadError: '连接列表加载失败', interfaces: '网卡流量', detailsFor: '查看详情', truncated: '内容已截断'
+      },
+      en: {
+        open: 'View details', all: 'All', close: 'Close', search: 'Search', filter: 'Filter', previous: 'Previous', next: 'Next',
+        copy: 'Copy', copied: 'Copied', copyError: 'Clipboard unavailable. Copy the text manually.', empty: 'No entries',
+        type: 'Type', value: 'Value', policy: 'Policy', selected: 'Selected', policyCount: 'Members', enabled: 'Enabled', disabled: 'Disabled',
+        domain: 'Domain', address: 'Address', ttl: 'TTL (seconds)', target: 'Target', status: 'Status', failed: 'Failed', active: 'Active',
+        completed: 'Completed', group: 'Group', proxy: 'Proxy', rule: 'Rule', error: 'Error', warn: 'Warning', brand: 'Info', idle: 'General',
+        timestamp: 'Time', startDate: 'Started', ip: 'IP address', inBytes: 'Downloaded', outBytes: 'Uploaded',
+        inSpeed: 'Download rate', outSpeed: 'Upload rate', name: 'Name', yes: 'Yes', no: 'No', online: 'Online instances', offline: 'Offline instances',
+        mode: 'Outbound mode', rtt: 'API latency', conns: 'Active requests', event: 'Event details', checkedAt: 'Checked at', activate: 'Set active and open overview',
+        switchError: 'Could not switch connections', loadError: 'Could not load connections', interfaces: 'Interface traffic', detailsFor: 'View details', truncated: 'Text was truncated'
+      }
+    };
+    for (const [dictionary, labels] of [[zh, detailLabels.zh], [en, detailLabels.en]]) {
+      for (const [key, value] of Object.entries(labels)) dictionary['detail.' + key] = value;
+    }
     const dicts = {
       zh: zh, 'zh-CN': zh, 'zh-TW': zh, en: en,
       ja: en, es: en, fr: en, de: en, ru: en, pt: en, ko: en, it: en,
@@ -754,24 +801,85 @@ window.__ModuleLoader__.load({
      * unload.
      * ------------------------------------------------------------------ */
     const CSS = `
-.sg-root{box-sizing:border-box;height:100%;min-height:0;overflow-y:auto;padding:28px 32px 40px;background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;font-size:14px;line-height:1.5;--sg-primary-fg:var(--dsw-alias-bg-base)}
+.sg-root,.sg-root.sg-force-light{
+  --sg-fallback-base:#f5f5f7;--sg-fallback-surface:#fff;--sg-fallback-raised:#ececf0;
+  --sg-fallback-border:#dddde3;--sg-fallback-border-strong:#a2a2ac;
+  --sg-fallback-text:#1c1c1e;--sg-fallback-muted:#595960;--sg-fallback-idle:#64646d;
+  --sg-fallback-accent:#a84020;--sg-fallback-error:#ac282e;--sg-fallback-success:#176b43;--sg-fallback-warning:#845305;
+  --sg-fallback-on-accent:#fff;
+}
+@media(prefers-color-scheme:dark){
+  .sg-root:not(.sg-force-light){
+    --sg-fallback-base:#1a1a1c;--sg-fallback-surface:#232326;--sg-fallback-raised:#2c2c30;
+    --sg-fallback-border:#3b3b43;--sg-fallback-border-strong:#696973;
+    --sg-fallback-text:#f2f2f4;--sg-fallback-muted:#b4b4bc;--sg-fallback-idle:#a3a3ad;
+    --sg-fallback-accent:#ff9478;--sg-fallback-error:#ff868a;--sg-fallback-success:#70dba0;--sg-fallback-warning:#f4b85b;
+    --sg-fallback-on-accent:#1a1a1c;
+  }
+}
+.sg-root.sg-force-dark{
+  --sg-fallback-base:#1a1a1c;--sg-fallback-surface:#232326;--sg-fallback-raised:#2c2c30;
+  --sg-fallback-border:#3b3b43;--sg-fallback-border-strong:#696973;
+  --sg-fallback-text:#f2f2f4;--sg-fallback-muted:#b4b4bc;--sg-fallback-idle:#a3a3ad;
+  --sg-fallback-accent:#ff9478;--sg-fallback-error:#ff868a;--sg-fallback-success:#70dba0;--sg-fallback-warning:#f4b85b;
+  --sg-fallback-on-accent:#1a1a1c;
+}
+/* Resolve host aliases before exposing their fallbacks to the page content. */
+.sg-root{
+  --sg-base:var(--dsw-alias-bg-base,var(--sg-fallback-base));
+  --sg-surface:var(--dsw-alias-bg-layer-1,var(--sg-fallback-surface));
+  --sg-raised:var(--dsw-alias-bg-layer-2,var(--sg-fallback-raised));
+  --sg-overlay:var(--dsw-alias-bg-overlay,var(--sg-surface));
+  --sg-border:var(--dsw-alias-border-l1,var(--sg-fallback-border));
+  --sg-border-strong:var(--dsw-alias-border-l2,var(--sg-fallback-border-strong));
+  --sg-text:var(--dsw-alias-label-primary,var(--sg-fallback-text));
+  --sg-muted:var(--dsw-alias-label-secondary,var(--sg-fallback-muted));
+  --sg-idle:var(--dsw-alias-state-idle-primary,var(--sg-fallback-idle));
+  --sg-accent:var(--dsw-alias-brand-primary,var(--sg-fallback-accent));
+  --sg-error:var(--dsw-alias-state-error-primary,var(--sg-fallback-error));
+  --sg-success:var(--dsw-alias-state-success-primary,var(--sg-fallback-success));
+  --sg-warning:var(--dsw-alias-state-warn-primary,var(--sg-fallback-warning));
+  --sg-primary-fg:var(--dsw-alias-bg-base,var(--sg-fallback-on-accent));
+  box-sizing:border-box;block-size:100%;min-block-size:0;min-inline-size:0;
+  overflow:auto;background:var(--sg-base);color:var(--sg-text);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;font-size:.875rem;line-height:1.5;
+  container:sg-panel / inline-size;
+}
+.sg-root.sg-force-light,.sg-root.sg-force-dark{
+  --sg-base:var(--sg-fallback-base);--sg-surface:var(--sg-fallback-surface);--sg-raised:var(--sg-fallback-raised);--sg-overlay:var(--sg-fallback-surface);
+  --sg-border:var(--sg-fallback-border);--sg-border-strong:var(--sg-fallback-border-strong);
+  --sg-text:var(--sg-fallback-text);--sg-muted:var(--sg-fallback-muted);--sg-idle:var(--sg-fallback-idle);
+  --sg-accent:var(--sg-fallback-accent);--sg-error:var(--sg-fallback-error);--sg-success:var(--sg-fallback-success);--sg-warning:var(--sg-fallback-warning);
+  --sg-primary-fg:var(--sg-fallback-on-accent);
+}
+.sg-root.sg-force-light{color-scheme:light}
+.sg-root.sg-force-dark{color-scheme:dark}
+.sg-inner{
+  --dsw-alias-bg-base:var(--sg-base);--dsw-alias-bg-layer-1:var(--sg-surface);--dsw-alias-bg-layer-2:var(--sg-raised);--dsw-alias-bg-overlay:var(--sg-overlay);
+  --dsw-alias-border-l1:var(--sg-border);--dsw-alias-border-l2:var(--sg-border-strong);
+  --dsw-alias-label-primary:var(--sg-text);--dsw-alias-label-secondary:var(--sg-muted);--dsw-alias-state-idle-primary:var(--sg-idle);
+  --dsw-alias-brand-primary:var(--sg-accent);--dsw-alias-state-error-primary:var(--sg-error);--dsw-alias-state-success-primary:var(--sg-success);--dsw-alias-state-warn-primary:var(--sg-warning);
+  --sg-edge:16px;--sg-gap:14px;--sg-target:36px;--sg-axis-width:56px;
+  max-inline-size:1440px;min-inline-size:0;margin-inline:auto;padding:24px var(--sg-edge) 36px;
+  padding-inline:max(var(--sg-edge),env(safe-area-inset-left)) max(var(--sg-edge),env(safe-area-inset-right));
+  padding-block-end:max(36px,env(safe-area-inset-bottom));
+  overflow-wrap:anywhere;
+}
 .sg-root *{box-sizing:border-box}
-.sg-root button,.sg-root input,.sg-root select,.sg-root textarea{font-family:inherit}
-.sg-root::-webkit-scrollbar{width:9px}
-.sg-root::-webkit-scrollbar-thumb{background:var(--dsw-alias-border-l2);border-radius:9px;border:2px solid var(--dsw-alias-bg-base)}
-.sg-mono{font-family:SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-variant-numeric:tabular-nums}
+.sg-root button,.sg-root input,.sg-root select,.sg-root textarea{font-family:inherit;line-height:inherit}
+.sg-root::-webkit-scrollbar{width:9px;height:9px}
+.sg-root::-webkit-scrollbar-thumb{background:var(--sg-border-strong);border-radius:9px;border:2px solid var(--sg-base)}
+.sg-root .sg-mono{font-family:SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-variant-numeric:tabular-nums}
 .sg-num{font-variant-numeric:tabular-nums;letter-spacing:-.01em}
-.sg-sub{font-size:12px;color:var(--dsw-alias-label-secondary)}
+.sg-sub{font-size:.75rem;color:var(--dsw-alias-label-secondary)}
 .sg-ic{display:block;flex:none}
-.sg-root.sg-force-light{--dsw-alias-bg-base:#f5f5f7;--dsw-alias-bg-layer-1:#ffffff;--dsw-alias-bg-layer-2:#ececf0;--dsw-alias-bg-overlay:#ffffff;--dsw-alias-border-l1:#e2e2e7;--dsw-alias-border-l2:#c9c9d0;--dsw-alias-brand-primary:#be4d27;--dsw-alias-label-primary:#1c1c1e;--dsw-alias-label-secondary:#63636a;--dsw-alias-state-error-primary:#c93338;--dsw-alias-state-idle-primary:#76767e;--dsw-alias-state-success-primary:#1a8a56;--dsw-alias-state-warn-primary:#a66a06;--sg-primary-fg:#ffffff}
-.sg-root.sg-force-dark{--dsw-alias-bg-base:#1a1a1c;--dsw-alias-bg-layer-1:#232326;--dsw-alias-bg-layer-2:#2c2c30;--dsw-alias-bg-overlay:#232326;--dsw-alias-border-l1:#343438;--dsw-alias-border-l2:#48484e;--dsw-alias-brand-primary:#e0684a;--dsw-alias-label-primary:#f2f2f4;--dsw-alias-label-secondary:#9a9aa2;--dsw-alias-state-error-primary:#ef5f63;--dsw-alias-state-idle-primary:#8e8e95;--dsw-alias-state-success-primary:#4ac97e;--dsw-alias-state-warn-primary:#e6a23c;--sg-primary-fg:#1a1a1c}
 
-.sg-header{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
-.sg-brand{width:44px;height:44px;border-radius:13px;display:flex;align-items:center;justify-content:center;color:var(--dsw-alias-brand-primary);background:var(--dsw-alias-bg-layer-1);border:1px solid var(--dsw-alias-border-l1)}
-.sg-head-txt{flex:1;min-width:180px}
-.sg-title{margin:0;font-size:24px;line-height:1.2;font-weight:650;letter-spacing:-.02em}
-.sg-subtitle{margin:3px 0 0;font-size:13px;color:var(--dsw-alias-label-secondary)}
-.sg-head-right{display:flex;align-items:center;gap:8px;margin-left:auto}
+.sg-header{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.sg-brand{width:44px;height:44px;flex:none;border-radius:13px;display:flex;align-items:center;justify-content:center;color:var(--dsw-alias-brand-primary);background:var(--dsw-alias-bg-layer-1);border:1px solid var(--dsw-alias-border-l1)}
+.sg-head-txt{flex:1 1 12rem;min-inline-size:0}
+.sg-title{margin:0;font-size:1.375rem;font-size:clamp(1.25rem,1rem + 1cqi,1.75rem);line-height:1.15;font-weight:700;letter-spacing:-.025em}
+.sg-subtitle{margin:4px 0 0;font-size:.8125rem;color:var(--dsw-alias-label-secondary)}
+.sg-head-right{display:flex;align-items:center;gap:8px;flex-wrap:wrap;max-inline-size:100%;margin-inline-start:auto}
 .sg-badge{display:inline-flex;align-items:center;gap:7px;padding:6px 11px;border-radius:999px;font-size:12px;font-weight:600;color:var(--dsw-alias-label-secondary);background:var(--dsw-alias-bg-layer-2);border:1px solid var(--dsw-alias-border-l1)}
 .sg-badge.is-live{color:var(--dsw-alias-state-success-primary)}
 .sg-badge-dot{width:7px;height:7px;border-radius:50%;background:var(--dsw-alias-label-secondary)}
@@ -790,24 +898,31 @@ window.__ModuleLoader__.load({
 
 /* Tab bar & active-connection switcher */
 .sg-tabbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:18px 0 20px}
-.sg-tabs{display:flex;gap:4px;padding:4px;border-radius:11px;background:var(--dsw-alias-bg-layer-1);border:1px solid var(--dsw-alias-border-l1)}
-.sg-tab{display:inline-flex;align-items:center;gap:7px;padding:7px 15px;border-radius:8px;border:0;background:transparent;color:var(--dsw-alias-label-secondary);font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap}
+.sg-tabs{display:flex;flex-wrap:wrap;max-inline-size:100%;gap:4px;padding:4px;border-radius:12px;background:var(--dsw-alias-bg-layer-1);border:1px solid var(--dsw-alias-border-l1)}
+.sg-tab{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-inline-size:0;padding:6px 14px;border-radius:8px;border:0;background:transparent;color:var(--dsw-alias-label-secondary);font-size:.8125rem;font-weight:600;cursor:pointer}
 .sg-tab:hover{color:var(--dsw-alias-label-primary)}
-.sg-tab.is-active{background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-primary)}
+.sg-tab.is-active{background:var(--dsw-alias-bg-layer-2);box-shadow:inset 0 -2px var(--dsw-alias-brand-primary);color:var(--dsw-alias-label-primary)}
 .sg-tabbar-sp{flex:1}
-.sg-switcher{position:relative}
-.sg-active-chip{display:inline-flex;align-items:center;gap:7px;padding:6px 11px;border-radius:999px;font-size:12px;font-weight:600;background:var(--dsw-alias-bg-layer-1);border:1px solid var(--dsw-alias-border-l1);color:var(--dsw-alias-label-secondary);cursor:pointer;transition:border-color .15s,color .15s}
+.sg-switcher{position:relative;min-inline-size:0;max-inline-size:100%;margin-inline-start:auto}
+.sg-active-chip{display:inline-flex;align-items:center;gap:7px;max-inline-size:100%;text-align:start;padding:6px 11px;border-radius:999px;font-size:.75rem;font-weight:600;background:var(--dsw-alias-bg-layer-1);border:1px solid var(--dsw-alias-border-l1);color:var(--dsw-alias-label-secondary);cursor:pointer;transition:border-color .15s,color .15s}
 .sg-active-chip:hover{border-color:var(--dsw-alias-brand-primary);color:var(--dsw-alias-label-primary)}
 .sg-active-chip .sg-ic{color:var(--dsw-alias-brand-primary)}
-.sg-active-chip .sg-chev{color:var(--dsw-alias-label-secondary);margin-left:-2px}
-.sg-popover{position:absolute;right:0;top:calc(100% + 6px);min-width:220px;max-width:300px;padding:6px;border-radius:12px;background:var(--dsw-alias-bg-overlay,var(--dsw-alias-bg-layer-1));border:1px solid var(--dsw-alias-border-l2);box-shadow:0 8px 24px rgba(0,0,0,.18);z-index:30;display:flex;flex-direction:column;gap:2px}
-.sg-pop-item{display:flex;align-items:center;gap:8px;width:100%;text-align:left;padding:7px 9px;border-radius:8px;border:0;background:transparent;color:var(--dsw-alias-label-primary);font-size:12.5px;font-weight:550;cursor:pointer}
-.sg-pop-item:hover{background:var(--dsw-alias-bg-layer-2)}
+.sg-active-chip .sg-chev{color:var(--dsw-alias-label-secondary);margin-inline-start:auto}
+.sg-popover{
+  position:absolute;inset-inline-end:0;inset-block-start:calc(100% + 6px);
+  inline-size:20rem;max-inline-size:calc(100vw - 2 * var(--sg-edge));max-inline-size:calc(100cqi - 2 * var(--sg-edge));
+  max-block-size:min(20rem,45vh);max-block-size:min(20rem,45dvh);
+  overflow:auto;overscroll-behavior:contain;padding:6px;border-radius:12px;
+  background:var(--dsw-alias-bg-overlay);border:1px solid var(--dsw-alias-border-l2);
+  box-shadow:0 8px 24px rgba(0,0,0,.18);z-index:30;display:flex;flex-direction:column;gap:2px;
+}
+.sg-pop-item{display:flex;align-items:center;gap:6px 8px;flex:none;flex-wrap:wrap;width:100%;text-align:start;padding:7px 9px;border-radius:8px;border:0;background:transparent;color:var(--dsw-alias-label-primary);font-size:.8125rem;font-weight:550;cursor:pointer}
+.sg-pop-item:hover,.sg-pop-item.is-active{background:var(--dsw-alias-bg-layer-2)}
 .sg-pop-item.is-active{color:var(--dsw-alias-brand-primary);font-weight:650}
-.sg-pop-name{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.sg-pop-host{font-size:11px;color:var(--dsw-alias-label-secondary);flex:none}
-.sg-pop-div{height:1px;background:var(--dsw-alias-border-l1);margin:4px 2px}
-.sg-pop-foot{color:var(--dsw-alias-label-secondary);font-size:12px}
+.sg-pop-name{flex:1;min-inline-size:0}
+.sg-pop-host{font-size:.6875rem;color:var(--dsw-alias-label-secondary);max-inline-size:100%}
+.sg-pop-div{flex:none;block-size:1px;background:var(--dsw-alias-border-l1);margin:4px 2px}
+.sg-pop-foot{color:var(--dsw-alias-label-secondary);font-size:.75rem}
 
 .sg-livebar{display:flex;align-items:center;gap:9px;padding:10px 14px;border-radius:11px;background:var(--dsw-alias-bg-layer-1);border:1px solid var(--dsw-alias-border-l1);font-size:12px;flex-wrap:wrap}
 .sg-dot-live{width:8px;height:8px;border-radius:50%;background:var(--dsw-alias-state-warn-primary)}
@@ -815,26 +930,27 @@ window.__ModuleLoader__.load({
 .sg-live-txt{font-weight:600;color:var(--dsw-alias-label-primary)}
 .sg-live-sp{flex:1}
 
-.sg-card{background:var(--dsw-alias-bg-layer-1);border:1px solid var(--dsw-alias-border-l1);border-radius:16px;padding:18px 20px;transition:border-color .15s,box-shadow .15s}
+.sg-card{min-inline-size:0;background:var(--dsw-alias-bg-layer-1);border:1px solid var(--dsw-alias-border-l1);border-radius:16px;padding:var(--sg-card-pad,16px);transition:border-color .15s}
 .sg-card:hover{border-color:var(--dsw-alias-border-l2)}
-.sg-card-h{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+.sg-card-h{display:flex;align-items:center;justify-content:space-between;gap:8px 12px;margin-bottom:14px;flex-wrap:wrap}
 .sg-card-h:last-child{margin-bottom:0}
 .sg-card-h.is-tall{align-items:flex-start}
-.sg-card-t{margin:0;font-size:14px;font-weight:650;display:flex;align-items:center;gap:8px}
-.sg-card-t .sg-ic{color:var(--dsw-alias-label-secondary)}
-.sg-h-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.sg-card-t{margin:0;font-size:.9375rem;font-weight:700;line-height:1.3;display:flex;align-items:center;gap:8px}
+.sg-card-t .sg-ic{color:var(--dsw-alias-brand-primary)}
+.sg-h-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-inline-size:0}
 
-.sg-metrics{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px}
-.sg-metric{padding:16px 16px 10px;display:flex;flex-direction:column;gap:10px;overflow:hidden}
-.sg-metric-head{display:flex;align-items:center;gap:9px}
-.sg-ico-tile{width:28px;height:28px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;background:var(--dsw-alias-bg-layer-2)}
-.sg-metric-label{font-size:12px;color:var(--dsw-alias-label-secondary);font-weight:500}
-.sg-metric-row{display:flex;align-items:baseline;justify-content:space-between;gap:8px;flex-wrap:wrap}
-.sg-metric-num{font-size:26px;font-weight:650;line-height:1;white-space:nowrap}
-.sg-unit{font-size:12px;color:var(--dsw-alias-label-secondary);margin-left:5px;font-weight:500}
-.sg-spark{width:100%;height:28px;display:block;margin-top:2px}
-.sg-spark-ph{height:28px;display:flex;align-items:flex-end}
-.sg-metric-link{border:0;background:transparent;padding:0;color:var(--dsw-alias-brand-primary);font-size:11.5px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:4px}
+.sg-metrics,.sg-strip{display:grid;grid-template-columns:repeat(var(--sg-stat-columns,5),minmax(0,1fr));gap:var(--sg-gap)}
+.sg-metrics>*,.sg-strip>*{grid-column:span var(--sg-stat-span,1)}
+.sg-metric{padding:14px var(--sg-card-pad,16px) 12px;display:flex;flex-direction:column;gap:8px}
+.sg-metric-head{display:flex;align-items:center;gap:8px}
+.sg-ico-tile{width:28px;height:28px;flex:none;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;background:var(--dsw-alias-bg-layer-2)}
+.sg-metric-label{font-size:.75rem;color:var(--dsw-alias-label-secondary);font-weight:600}
+.sg-metric-row{display:flex;align-items:baseline;justify-content:space-between;gap:4px 8px;flex-wrap:wrap}
+.sg-metric-num{font-size:1.375rem;font-size:clamp(1.25rem,1rem + 1cqi,1.75rem);font-weight:700;line-height:1.15;min-inline-size:0}
+.sg-unit{font-size:.75rem;color:var(--dsw-alias-label-secondary);margin-inline-start:5px;font-weight:500}
+.sg-spark{width:100%;height:28px;display:block;margin-top:auto}
+.sg-spark-ph{min-block-size:28px;display:flex;align-items:flex-end;margin-top:auto}
+.sg-metric-link{border:0;background:transparent;padding:0;color:var(--dsw-alias-brand-primary);font-size:.75rem;font-weight:600;text-align:start;cursor:pointer;display:inline-flex;align-items:center;gap:4px}
 .sg-metric-link:hover{text-decoration:underline}
 .sg-spark-line{fill:none;stroke:currentColor;stroke-width:1.6;vector-effect:non-scaling-stroke;stroke-linejoin:round;stroke-linecap:round}
 .sg-spark-area{fill:currentColor;opacity:.12}
@@ -845,19 +961,22 @@ window.__ModuleLoader__.load({
 .sg-tone-idle{color:var(--dsw-alias-state-idle-primary)}
 .sg-tone-error{color:var(--dsw-alias-state-error-primary)}
 
-.sg-main-grid{display:grid;grid-template-columns:minmax(0,1.65fr) minmax(0,1fr);gap:14px}
-.sg-bottom-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.sg-main-grid,.sg-bottom-grid{display:grid;gap:var(--sg-gap)}
+.sg-main-grid{grid-template-columns:var(--sg-main-cols,minmax(0,1.6fr) minmax(0,1fr))}
+.sg-bottom-grid{grid-template-columns:repeat(var(--sg-bottom-cols,3),minmax(0,1fr))}
+.sg-bottom-grid>:nth-child(3){grid-column:var(--sg-bottom-last,auto)}
 
-.sg-legend{display:inline-flex;gap:6px}
-.sg-legend-btn{display:inline-flex;align-items:center;gap:6px;border:1px solid transparent;background:transparent;color:var(--dsw-alias-label-secondary);font-size:12px;padding:4px 8px;border-radius:7px;cursor:pointer;transition:opacity .15s,border-color .15s}
-.sg-legend-btn:hover{border-color:var(--dsw-alias-border-l1)}
-.sg-legend-btn.is-off{opacity:.38;text-decoration:line-through}
-.sg-legend-dot{width:8px;height:8px;border-radius:50%;background:currentColor}
+.sg-legend{display:inline-flex;flex-wrap:wrap;gap:4px}
+.sg-legend-btn{display:inline-flex;align-items:center;gap:6px;border:1px solid transparent;background:transparent;color:var(--dsw-alias-label-secondary);font-size:.75rem;padding:4px 8px;border-radius:7px;cursor:pointer;transition:border-color .15s}
+.sg-legend-btn:hover{border-color:var(--dsw-alias-border-l2)}
+.sg-legend-btn.is-off{text-decoration:line-through}
+.sg-legend-btn.is-off .sg-legend-dot{background:transparent;border:1px solid currentColor}
+.sg-legend-dot{width:8px;height:8px;border-radius:50%;background:currentColor;flex:none}
 
-.sg-chart{width:100%;overflow:visible}
+.sg-chart{display:grid;grid-template-columns:minmax(0,1fr);width:100%;container:sg-chart / inline-size}
 .sg-chart-wrap{display:flex;align-items:stretch;gap:8px;width:100%}
-.sg-yaxis{display:flex;flex-direction:column;justify-content:space-between;padding:8px 0 6px;font-size:10.5px;color:var(--dsw-alias-label-secondary);text-align:right;white-space:nowrap;flex:none;min-width:56px}
-.sg-plot{position:relative;flex:1;min-width:0;cursor:crosshair}
+.sg-yaxis{display:flex;flex-direction:column;justify-content:space-between;padding:8px 0 6px;font-size:.6875rem;color:var(--dsw-alias-label-secondary);text-align:end;white-space:nowrap;flex:none;inline-size:max(var(--sg-axis-width),6ch)}
+.sg-plot{--sg-tip-width:150px;position:relative;flex:1;min-width:0;cursor:crosshair;touch-action:pan-y pinch-zoom}
 .sg-chart-svg{width:100%;height:200px;display:block;overflow:hidden}
 .sg-grid{stroke:var(--dsw-alias-border-l1);stroke-width:1;vector-effect:non-scaling-stroke}
 .sg-area-down{fill:var(--dsw-alias-brand-primary);opacity:.14}
@@ -869,12 +988,16 @@ window.__ModuleLoader__.load({
 .sg-hover-dot{position:absolute;width:8px;height:8px;border-radius:50%;border:2px solid var(--dsw-alias-bg-layer-1);transform:translate(-50%,-50%);pointer-events:none}
 .sg-hover-dot.is-down{background:var(--dsw-alias-brand-primary)}
 .sg-hover-dot.is-up{background:var(--dsw-alias-state-success-primary)}
-.sg-tooltip{position:absolute;top:8px;padding:7px 10px;border-radius:9px;background:var(--dsw-alias-bg-overlay,var(--dsw-alias-bg-layer-1));border:1px solid var(--dsw-alias-border-l2);box-shadow:0 4px 14px rgba(0,0,0,.16);font-size:11.5px;pointer-events:none;white-space:nowrap;z-index:10;display:flex;flex-direction:column;gap:3px}
-.sg-tip-row{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.sg-tooltip{position:absolute;top:8px;width:var(--sg-tip-width);max-inline-size:100%;min-inline-size:0;padding:6px 8px;border-radius:9px;background:var(--dsw-alias-bg-overlay);border:1px solid var(--dsw-alias-border-l2);box-shadow:0 4px 14px rgba(0,0,0,.16);font-size:.6875rem;pointer-events:none;z-index:10;display:flex;flex-direction:column;gap:3px;white-space:normal;overflow-wrap:anywhere}
+.sg-tip-row{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:2px 6px}
 .sg-tip-lbl{display:inline-flex;align-items:center;gap:5px;color:var(--dsw-alias-label-secondary)}
-.sg-xaxis{display:flex;justify-content:space-between;gap:6px;margin-top:8px;padding-left:64px;font-size:11px;color:var(--dsw-alias-label-secondary);overflow:hidden;width:100%}
-.sg-xaxis .sg-tick{white-space:nowrap;flex:none}
-.sg-chart-foot{display:flex;justify-content:space-between;gap:12px;margin-top:10px;font-size:11px;color:var(--dsw-alias-label-secondary)}
+.sg-xaxis{display:flex;justify-content:space-between;gap:4px;margin-top:8px;padding-inline-start:calc(max(var(--sg-axis-width),6ch) + 8px);font-size:.6875rem;color:var(--dsw-alias-label-secondary);width:100%}
+.sg-xaxis .sg-tick{min-inline-size:0;text-align:center}
+.sg-xaxis .sg-tick:first-child{text-align:start}
+.sg-xaxis .sg-tick:last-child{text-align:end}
+.sg-chart-foot{display:flex;flex-wrap:wrap;justify-content:space-between;gap:4px 12px;margin-top:10px;font-size:.6875rem;color:var(--dsw-alias-label-secondary)}
+@container sg-chart (max-width:30rem){.sg-xaxis .sg-tick-odd:not(.sg-tick-edge){display:none}}
+@container sg-chart (max-width:16rem){.sg-xaxis .sg-tick:not(.sg-tick-edge):not(:first-child):not(:last-child){display:none}}
 .sg-empty{height:200px;display:flex;align-items:center;justify-content:center;color:var(--dsw-alias-label-secondary);font-size:13px;text-align:center;padding:0 12px}
 
 .sg-dev-list{display:flex;flex-direction:column;gap:4px}
@@ -885,10 +1008,10 @@ window.__ModuleLoader__.load({
 .sg-dev-dot.is-hot{background:var(--dsw-alias-state-success-primary)}
 .sg-dev-ico{color:var(--dsw-alias-label-secondary);flex:none}
 .sg-dev-main{display:flex;flex-direction:column;min-width:0;flex:1}
-.sg-dev-name{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.sg-dev-sub{font-size:11px;color:var(--dsw-alias-label-secondary)}
-.sg-dev-right{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex:none}
-.sg-dev-speed{font-size:11px;color:var(--dsw-alias-label-secondary);white-space:nowrap}
+.sg-dev-name{font-size:.8125rem;font-weight:650;overflow-wrap:anywhere}
+.sg-dev-sub{font-size:.6875rem;color:var(--dsw-alias-label-secondary)}
+.sg-dev-right{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex:none;max-inline-size:40%}
+.sg-dev-speed{font-size:.6875rem;color:var(--dsw-alias-label-secondary);text-align:end}
 .sg-dev-speed.is-hot{color:var(--dsw-alias-label-primary);font-weight:600}
 .sg-dev-bar{width:54px;height:5px;border-radius:4px;background:var(--dsw-alias-bg-layer-2);overflow:hidden;flex:none}
 .sg-dev-bar-fill{display:block;height:100%;border-radius:4px;background:var(--dsw-alias-brand-primary)}
@@ -900,7 +1023,7 @@ window.__ModuleLoader__.load({
 .sg-kv-row:last-child{border-bottom:0}
 .sg-kv-key{display:flex;align-items:center;gap:9px;color:var(--dsw-alias-label-secondary)}
 .sg-kv-key .sg-ic{color:var(--dsw-alias-state-idle-primary)}
-.sg-kv-val{font-weight:550;text-align:right;word-break:break-all}
+.sg-kv-val{min-inline-size:0;font-weight:550;text-align:end;overflow-wrap:anywhere}
 
 .sg-node{margin-bottom:13px}
 .sg-node:last-child{margin-bottom:0}
@@ -934,62 +1057,199 @@ window.__ModuleLoader__.load({
 .sg-stack>.sg-notice{margin-top:0}
 
 /* Shared controls */
-.sg-btn{display:inline-flex;align-items:center;gap:7px;padding:8px 14px;border-radius:9px;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-primary);font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap}
-.sg-btn:hover{border-color:var(--dsw-alias-brand-primary)}
+.sg-btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;max-inline-size:100%;padding:7px 13px;border-radius:9px;border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-primary);font-size:.8125rem;font-weight:600;text-align:center;cursor:pointer}
+.sg-btn:is(:hover,:focus-visible){border-color:var(--dsw-alias-brand-primary)}
 .sg-btn.primary{background:var(--dsw-alias-brand-primary);border-color:var(--dsw-alias-brand-primary);color:var(--sg-primary-fg)}
 .sg-btn.danger{color:var(--dsw-alias-state-error-primary);border-color:var(--dsw-alias-state-error-primary)}
-.sg-btn.sm{padding:5px 10px;font-size:12px}
-.sg-btn:disabled{opacity:.5;cursor:not-allowed}
-.sg-input,.sg-select{width:100%;padding:8px 10px;border-radius:9px;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-primary);font-size:13px;outline:none}
+.sg-btn.sm{padding:5px 10px;font-size:.75rem}
+.sg-btn:disabled,.sg-icon-btn:disabled,.sg-active-chip:disabled{opacity:.6;cursor:not-allowed}
+.sg-input,.sg-select{width:100%;max-inline-size:100%;padding:8px 10px;border-radius:9px;border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-primary);font-size:.875rem}
 .sg-input:focus,.sg-select:focus{border-color:var(--dsw-alias-brand-primary)}
-.sg-select-sm{width:auto;min-width:112px}
+.sg-select-sm{width:auto;min-inline-size:min(7rem,100%)}
 .sg-field{display:flex;flex-direction:column;gap:5px;min-width:0}
-.sg-field label{font-size:12px;color:var(--dsw-alias-label-secondary);font-weight:600}
-.sg-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.sg-field label{font-size:.75rem;color:var(--dsw-alias-label-secondary);font-weight:600}
+.sg-form-grid{display:grid;grid-template-columns:repeat(var(--sg-form-cols,2),minmax(0,1fr));gap:12px}
 .sg-form-ca{margin-top:12px}
-.sg-form-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
-.sg-seg{display:inline-flex;gap:3px;padding:3px;border-radius:10px;background:var(--dsw-alias-bg-layer-2);border:1px solid var(--dsw-alias-border-l1);flex-wrap:wrap}
-.sg-seg button{padding:6px 14px;border-radius:7px;border:0;background:transparent;color:var(--dsw-alias-label-secondary);font-size:13px;font-weight:600;cursor:pointer}
-.sg-seg button.is-active{background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary)}
-.sg-switch{width:38px;height:22px;border-radius:999px;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-2);position:relative;cursor:pointer;flex:none;padding:0}
-.sg-switch.is-on{background:var(--dsw-alias-brand-primary);border-color:var(--dsw-alias-brand-primary)}
-.sg-switch i{position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:var(--dsw-alias-bg-layer-1);transition:left .15s}
-.sg-switch.is-on i{left:18px}
-.sg-set-row{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 0;border-bottom:1px solid var(--dsw-alias-border-l1);flex-wrap:wrap}
+.sg-form-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:14px}
+.sg-seg{display:inline-flex;gap:3px;padding:3px;border-radius:10px;background:var(--dsw-alias-bg-layer-2);border:1px solid var(--dsw-alias-border-l1);flex-wrap:wrap;max-inline-size:100%}
+.sg-seg button{padding:6px 12px;border-radius:7px;border:0;background:transparent;color:var(--dsw-alias-label-secondary);font-size:.8125rem;font-weight:600;cursor:pointer}
+.sg-seg button.is-active{background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary);box-shadow:inset 0 -2px var(--dsw-alias-brand-primary)}
+.sg-switch{inline-size:44px;block-size:44px;border-radius:9px;border:0;background:none;position:relative;cursor:pointer;flex:none;padding:0}
+.sg-switch::before{content:"";position:absolute;inset:11px 3px;border-radius:999px;border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-2)}
+.sg-switch.is-on::before{background:var(--dsw-alias-brand-primary);border-color:var(--dsw-alias-brand-primary)}
+.sg-switch i{position:absolute;inset-block-start:14px;inset-inline-start:6px;width:16px;height:16px;border-radius:50%;background:var(--dsw-alias-label-secondary);transition:inset-inline-start .15s}
+.sg-switch.is-on i{inset-inline-start:22px;background:var(--sg-primary-fg)}
+.sg-set-row{display:flex;align-items:center;justify-content:space-between;gap:8px 16px;padding:9px 0;border-bottom:1px solid var(--dsw-alias-border-l1);flex-wrap:wrap}
 .sg-set-row:last-child{border-bottom:0}
-.sg-set-label{font-size:13px;font-weight:600}
-.sg-set-desc{font-size:11.5px;color:var(--dsw-alias-label-secondary);margin-top:2px;font-weight:400;max-width:460px}
-.sg-stack{display:flex;flex-direction:column;gap:18px}
+.sg-set-label{font-size:.8125rem;font-weight:650}
+.sg-set-desc{font-size:.75rem;color:var(--dsw-alias-label-secondary);margin-top:2px;font-weight:400;max-inline-size:38rem}
+.sg-stack{display:flex;flex-direction:column;gap:var(--sg-gap)}
+.sg-settings{inline-size:100%;max-inline-size:60rem;margin-inline:auto}
+.sg-settings-connection{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:8px 12px;min-inline-size:0;max-inline-size:100%}
+.sg-settings-connection .sg-kv-val{min-inline-size:0;text-align:inherit;word-break:normal;overflow-wrap:anywhere}
+.sg-btn,.sg-icon-btn,.sg-tab,.sg-active-chip,.sg-pop-item,.sg-dev,.sg-event,.sg-retry,.sg-seg button,.sg-input,.sg-select,.sg-diag-toggle{min-block-size:var(--sg-target)}
+.sg-icon-btn{min-inline-size:var(--sg-target);flex:none}
+.sg-tab,.sg-retry,.sg-seg button,.sg-diag-toggle{min-inline-size:var(--sg-target)}
+.sg-retry{max-inline-size:100%;white-space:normal}
+.sg-error{flex-wrap:wrap}
+.sg-legend-btn,.sg-metric-link{min-block-size:var(--sg-inline-target,28px)}
+.sg-root :focus-visible{outline-color:var(--sg-accent)}
+.sg-pop-item:focus-visible,.sg-plot:focus-visible{outline-offset:-2px}
+@media(any-pointer:coarse){.sg-inner{--sg-target:44px;--sg-inline-target:44px}.sg-input,.sg-select{font-size:1rem}}
 
 /* Devices */
-.sg-strip{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}
-.sg-strip-item{padding:14px 16px}
-.sg-strip-label{font-size:11px;color:var(--dsw-alias-label-secondary)}
-.sg-strip-value{font-size:21px;font-weight:650;margin-top:5px;white-space:nowrap}
-.sg-conn-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
-.sg-conn-top{display:flex;align-items:center;gap:9px}
-.sg-conn-name{font-size:14px;font-weight:650;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sg-strip-item{padding:var(--sg-card-pad,16px);display:flex;flex-direction:column;gap:4px}
+.sg-strip-label{font-size:.75rem;font-weight:600;color:var(--dsw-alias-label-secondary)}
+.sg-strip-value{font-size:1.3125rem;font-weight:700;line-height:1.2}
+.sg-metrics>:nth-child(4),.sg-strip>:nth-child(4){grid-column:span var(--sg-fourth-stat-span,var(--sg-stat-span,1))}
+.sg-metrics>:nth-child(5),.sg-strip>:nth-child(5){grid-column:span var(--sg-fifth-stat-span,var(--sg-stat-span,1))}
+.sg-conn-list{display:grid;grid-template-columns:repeat(var(--sg-conn-cols,2),minmax(0,1fr));gap:var(--sg-gap)}
+.sg-conn-list>.sg-card{display:flex;flex-direction:column}
+.sg-conn-top{display:flex;align-items:center;flex-wrap:wrap;gap:6px 9px}
+.sg-conn-name{font-size:.875rem;font-weight:700;flex:1 1 6rem;min-width:0}
 .sg-badge-sm{display:inline-flex;align-items:center;gap:5px;flex:none;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:650;background:var(--dsw-alias-bg-layer-2);border:1px solid var(--dsw-alias-border-l1);color:var(--dsw-alias-label-secondary)}
 .sg-badge-sm.is-active{color:var(--dsw-alias-state-success-primary)}
 .sg-badge-sm.is-online{color:var(--dsw-alias-state-success-primary)}
 .sg-badge-sm.is-offline{color:var(--dsw-alias-state-error-primary)}
 .sg-badge-sm.is-warn{color:var(--dsw-alias-state-warn-primary)}
-.sg-conn-meta{display:flex;flex-wrap:wrap;gap:6px 18px;margin-top:12px;font-size:12px}
-.sg-conn-meta-item{display:flex;align-items:center;gap:6px;color:var(--dsw-alias-label-secondary)}
+.sg-conn-meta{display:flex;flex-wrap:wrap;gap:6px 18px;margin-top:12px;font-size:.75rem}
+.sg-conn-meta-item{display:flex;align-items:baseline;flex-wrap:wrap;gap:2px 6px;min-inline-size:0;color:var(--dsw-alias-label-secondary)}
+.sg-conn-meta-item .sg-ic{align-self:center}
 .sg-conn-meta-item b{color:var(--dsw-alias-label-primary);font-weight:600}
-.sg-conn-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:14px}
-.sg-table-wrap{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
-.sg-diag-tbl{width:100%;border-collapse:collapse;font-size:12px;min-width:460px}
-.sg-diag-tbl th{text-align:left;font-weight:600;color:var(--dsw-alias-label-secondary);padding:7px 8px;border-bottom:1px solid var(--dsw-alias-border-l1);white-space:nowrap}
-.sg-diag-tbl td{padding:7px 8px;border-bottom:1px solid var(--dsw-alias-border-l1)}
-.sg-diag-tbl tr:last-child td{border-bottom:0}
-.sg-req-target{max-width:340px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sg-conn-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-block-start:auto;padding-block-start:14px}
+
+/* Diagnostic rows stay native at wide widths and show labels on narrow cards. */
+.sg-table-wrap{width:100%;min-inline-size:0;max-block-size:min(32rem,62vh);max-block-size:min(32rem,62dvh);overflow:auto;container:sg-table / inline-size}
+table.sg-diag-tbl{width:100%;border-collapse:separate;border-spacing:0;font-size:.8125rem;min-inline-size:30rem}
+.sg-diag-tbl thead{position:sticky;inset-block-start:0;z-index:1;background:var(--dsw-alias-bg-layer-2)}
+.sg-diag-tbl th,.sg-diag-tbl td{padding:8px 10px;border-bottom:1px solid var(--dsw-alias-border-l1);text-align:start}
+.sg-diag-tbl th{color:var(--dsw-alias-label-secondary);font-weight:650}
+.sg-diag-tbl td{vertical-align:middle;overflow-wrap:anywhere}
+.sg-diag-tbl td[role=rowheader]{position:sticky;inset-inline-start:0;background:var(--dsw-alias-bg-layer-1)}
+.sg-diag-tbl tbody tr:last-child>*{border-bottom:0}
+.sg-req-target{max-inline-size:24rem;overflow-wrap:anywhere}
 .sg-pill-ok{color:var(--dsw-alias-state-success-primary);font-weight:650}
 .sg-pill-fail{color:var(--dsw-alias-state-error-primary);font-weight:650}
 .sg-pill-warn{color:var(--dsw-alias-state-warn-primary);font-weight:650}
+.sg-diag-summary{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px 12px;margin-block-end:10px}
+.sg-diag-copy-status:not(:empty){margin-block:6px 10px}
+.sg-diag-report{resize:vertical;margin-block-end:10px}
+.sg-diag-toggle{display:inline-flex;align-items:center;gap:6px;max-inline-size:100%;padding:4px 6px;border:1px solid transparent;border-radius:7px;background:transparent;color:var(--dsw-alias-brand-primary);font-size:inherit;font-weight:650;text-align:start;cursor:pointer}
+.sg-diag-toggle:hover,.sg-diag-toggle[aria-expanded=true]{background:var(--dsw-alias-bg-layer-2)}
+.sg-diag-toggle[aria-expanded=true] .sg-ic{rotate:180deg}
+.sg-diag-detail-body{display:grid;gap:4px;padding:10px 12px;border-radius:9px;background:var(--dsw-alias-bg-layer-2)}
+.sg-diag-message{overflow-wrap:anywhere}
+@container sg-table (max-width:34rem){
+  table.sg-diag-tbl[role=table],.sg-diag-tbl[role=table] :is(tbody,tr,td){display:block}
+  table.sg-diag-tbl[role=table]{min-inline-size:0}
+  .sg-diag-tbl[role=table] thead{display:none}
+  .sg-diag-tbl[role=table] tbody tr{margin-block-end:8px;border:1px solid var(--dsw-alias-border-l1);border-radius:10px}
+  .sg-diag-tbl[role=table] tbody tr:last-child{margin-block-end:0}
+  .sg-diag-tbl[role=table] tbody tr>*:last-child{border-bottom:0}
+  .sg-diag-tbl[role=table] tbody tr>td[data-label]{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,3fr);gap:8px;align-items:center;max-inline-size:none}
+  .sg-diag-tbl[role=table] td[data-label]::before{content:attr(data-label);font-family:system-ui,sans-serif;font-weight:600;color:var(--dsw-alias-label-secondary)}
+  .sg-diag-tbl[role=table] td[role=rowheader]{position:static;background:var(--dsw-alias-bg-layer-2);border-radius:9px 9px 0 0}
+  .sg-diag-tbl .sg-diag-detail>td{padding:4px}
+}
+@supports not (container-type:inline-size){
+  @media(max-width:42rem){
+    table.sg-diag-tbl[role=table],.sg-diag-tbl[role=table] :is(tbody,tr,td){display:block}
+    table.sg-diag-tbl[role=table]{min-inline-size:0}
+    .sg-diag-tbl[role=table] thead{display:none}
+    .sg-diag-tbl[role=table] tbody tr{margin-block-end:8px;border:1px solid var(--dsw-alias-border-l1);border-radius:10px}
+    .sg-diag-tbl[role=table] tbody tr:last-child{margin-block-end:0}
+    .sg-diag-tbl[role=table] tbody tr>*:last-child{border-bottom:0}
+    .sg-diag-tbl[role=table] tbody tr>td[data-label]{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,3fr);gap:8px;align-items:center;max-inline-size:none}
+    .sg-diag-tbl[role=table] td[data-label]::before{content:attr(data-label);font-family:system-ui,sans-serif;font-weight:600;color:var(--dsw-alias-label-secondary)}
+    .sg-diag-tbl[role=table] td[role=rowheader]{position:static;background:var(--dsw-alias-bg-layer-2);border-radius:9px 9px 0 0}
+    .sg-diag-tbl .sg-diag-detail>td{padding:4px}
+  }
+}
 
-@media(max-width:1120px){.sg-metrics{grid-template-columns:repeat(3,minmax(0,1fr))}.sg-main-grid{grid-template-columns:1fr}.sg-bottom-grid{grid-template-columns:1fr}.sg-strip{grid-template-columns:repeat(3,minmax(0,1fr))}}
-@media(max-width:720px){.sg-root{padding:20px 16px 32px}.sg-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.sg-title{font-size:20px}.sg-yaxis{min-width:46px;font-size:10px}.sg-xaxis{padding-left:54px}.sg-xaxis .sg-tick.sg-tick-odd{display:none}.sg-conn-list{grid-template-columns:1fr}.sg-strip{grid-template-columns:repeat(2,minmax(0,1fr))}.sg-form-grid{grid-template-columns:1fr}}
+/* The native dialog occupies the top layer and keeps its own scroll region. */
+.sg-detail-drawer{
+  position:fixed;inset:0 0 0 auto;margin:0;padding:0;
+  inline-size:min(100%,36rem);max-inline-size:none;block-size:100%;max-block-size:none;
+  border:0;border-inline-start:1px solid var(--dsw-alias-border-l2);
+  background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary);
+  box-shadow:0 0 32px rgba(0,0,0,.22);overflow:auto;overscroll-behavior:contain;
+  --sg-drawer-pad:20px;--sg-target:44px;
+}
+.sg-detail-drawer[open]{display:flex;flex-direction:column}
+.sg-detail-drawer::backdrop{background:rgba(0,0,0,.48);overflow:hidden;overscroll-behavior:contain}
+.sg-detail-head,.sg-detail-tools,.sg-detail-body,.sg-detail-pages{padding-inline:var(--sg-drawer-pad);min-inline-size:0}
+.sg-detail-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding-block:16px;border-bottom:1px solid var(--dsw-alias-border-l1)}
+.sg-detail-head h2{font-size:1.25rem;line-height:1.3;margin:0;font-weight:700}
+.sg-detail-head p{margin:4px 0 0}
+.sg-detail-head .sg-icon-btn{font-size:1.25rem;line-height:1}
+.sg-detail-tools{display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding-block:10px;border-bottom:1px solid var(--dsw-alias-border-l1)}
+.sg-detail-tools .sg-input{flex:1 1 12rem;min-inline-size:0}
+.sg-detail-tools .sg-select{flex:0 1 auto}
+.sg-detail-body{flex:1;min-block-size:6rem;overflow:auto;overscroll-behavior:contain;padding-block:12px 16px;display:flex;flex-direction:column;gap:10px}
+.sg-detail-body>.sg-notice,.sg-detail-body>p{margin:0}
+.sg-detail-item{border:1px solid var(--dsw-alias-border-l1);border-radius:12px;padding:12px;background:var(--dsw-alias-bg-base)}
+.sg-detail-item h3{margin:0;font-size:.9375rem;line-height:1.35;font-weight:700}
+.sg-detail-item>.sg-btn{margin-block-start:10px}
+.sg-detail-fields{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr);gap:6px 10px;margin:8px 0 0;font-size:.8125rem}
+.sg-detail-fields dt{color:var(--dsw-alias-label-secondary)}
+.sg-detail-fields dd{margin:0;min-inline-size:0;overflow-wrap:anywhere;white-space:pre-wrap}
+.sg-detail-pages{display:flex;align-items:center;justify-content:flex-end;gap:8px 12px;flex-wrap:wrap;padding-block:10px;border-top:1px solid var(--dsw-alias-border-l1)}
+.sg-detail-pages:empty{display:none}
+.sg-detail-pages [role=status]{margin-inline-end:auto}
+@media(max-width:42rem){
+  .sg-detail-drawer{
+    inset:auto 0 0;inline-size:100%;block-size:min(88vh,44rem);block-size:min(88dvh,44rem);
+    border:0;border-block-start:1px solid var(--dsw-alias-border-l2);border-radius:16px 16px 0 0;
+    padding-block-end:env(safe-area-inset-bottom);--sg-drawer-pad:14px;
+  }
+  .sg-detail-tools .sg-input,.sg-detail-tools .sg-select{font-size:1rem}
+}
+
+/* Panel breakpoints follow available space in the host. */
+@container sg-panel (min-width:65.001rem){
+  .sg-inner{--sg-edge:28px;--sg-gap:16px;--sg-card-pad:20px;padding-block-start:28px}
+}
+@container sg-panel (max-width:65rem){
+  .sg-inner{--sg-stat-columns:6;--sg-stat-span:2;--sg-fourth-stat-span:3;--sg-fifth-stat-span:3;--sg-bottom-cols:2;--sg-bottom-last:1 / -1}
+}
+@container sg-panel (max-width:54rem){.sg-inner{--sg-main-cols:minmax(0,1fr)}}
+@container sg-panel (max-width:42rem){
+  .sg-inner{--sg-stat-columns:2;--sg-stat-span:1;--sg-fourth-stat-span:1;--sg-fifth-stat-span:2;--sg-bottom-cols:1;--sg-conn-cols:1;--sg-form-cols:1;--sg-edge:12px;--sg-gap:12px;--sg-card-pad:13px;--sg-target:44px;--sg-inline-target:44px;--sg-axis-width:46px;padding-block-start:16px}
+  .sg-tabbar{gap:8px;margin-block:14px 16px}
+  .sg-tabs,.sg-switcher{inline-size:100%}
+  .sg-tab{flex:1;min-inline-size:0;padding-inline:7px}
+  .sg-tabbar-sp{display:none}
+  .sg-active-chip{inline-size:100%;border-radius:10px}
+  .sg-popover{max-inline-size:100%}
+  .sg-input,.sg-select{font-size:1rem}
+  .sg-settings-connection{justify-content:flex-start;text-align:start}
+}
+@container sg-panel (max-width:19rem){
+  .sg-inner{--sg-stat-columns:1;--sg-fifth-stat-span:1}
+  .sg-tab{flex-basis:100%}
+}
+@supports not (container-type:inline-size){
+  @media(min-width:65.001rem){.sg-inner{--sg-edge:28px;--sg-gap:16px;--sg-card-pad:20px;padding-block-start:28px}}
+  @media(max-width:65rem){.sg-inner{--sg-stat-columns:6;--sg-stat-span:2;--sg-fourth-stat-span:3;--sg-fifth-stat-span:3;--sg-bottom-cols:2;--sg-bottom-last:1 / -1}}
+  @media(max-width:54rem){.sg-inner{--sg-main-cols:minmax(0,1fr)}}
+  @media(max-width:42rem){
+    .sg-inner{--sg-stat-columns:2;--sg-stat-span:1;--sg-fourth-stat-span:1;--sg-fifth-stat-span:2;--sg-bottom-cols:1;--sg-conn-cols:1;--sg-form-cols:1;--sg-edge:12px;--sg-gap:12px;--sg-card-pad:13px;--sg-target:44px;--sg-inline-target:44px;--sg-axis-width:46px;padding-block-start:16px}
+    .sg-tabbar{gap:8px;margin-block:14px 16px}
+    .sg-tabs,.sg-switcher{inline-size:100%}
+    .sg-tab{flex:1;min-inline-size:0;padding-inline:7px}
+    .sg-tabbar-sp{display:none}
+    .sg-active-chip{inline-size:100%;border-radius:10px}
+    .sg-popover{max-inline-size:100%}
+    .sg-input,.sg-select{font-size:1rem}
+    .sg-settings-connection{justify-content:flex-start;text-align:start}
+    .sg-xaxis .sg-tick-odd:not(.sg-tick-edge){display:none}
+  }
+  @media(max-width:19rem){
+    .sg-inner{--sg-stat-columns:1;--sg-fifth-stat-span:1}
+    .sg-tab{flex-basis:100%}
+    .sg-xaxis .sg-tick:not(.sg-tick-edge):not(:first-child):not(:last-child){display:none}
+  }
+}
 @media(prefers-reduced-motion:reduce){.sg-root *{animation:none!important;transition:none!important}}
 `;
 
@@ -1077,25 +1337,79 @@ window.__ModuleLoader__.load({
             const y = H - BOT - f * (H - TOP - BOT);
             return h('line', { key: 'g' + i, x1: 0, y1: y, x2: W, y2: y, className: 'sg-grid' });
           });
-          const onMove = function (e) {
-            if (n < 2) return;
+          const pickPointerSample = function (e) {
+            if (!n || !e.isPrimary) return;
             const rect = e.currentTarget.getBoundingClientRect();
             if (!rect.width) return;
             const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
             setHoverIdx(Math.round(ratio * (n - 1)));
           };
-          const hi = hoverIdx >= 0 && hoverIdx < n ? hoverIdx : -1;
-          const hiPct = hi >= 0 && n > 1 ? (hi / (n - 1)) * 100 : 0;
-          const tipStyle = hiPct > 62
-            ? { right: (100 - hiPct) + '%', marginRight: '10px' }
-            : { left: hiPct + '%', marginLeft: '10px' };
+          const hi = n && hoverIdx >= 0 ? Math.min(hoverIdx, n - 1) : -1;
+          const onKey = function (e) {
+            let next;
+            switch (e.key) {
+              case 'ArrowLeft':
+              case 'ArrowDown': next = Math.max(0, hi - 1); break;
+              case 'ArrowRight':
+              case 'ArrowUp': next = Math.min(n - 1, hi + 1); break;
+              case 'Home': next = 0; break;
+              case 'End': next = n - 1; break;
+              case 'Escape':
+                if (hi < 0) return;
+                e.stopPropagation();
+                next = -1;
+                break;
+              default: return;
+            }
+            e.preventDefault();
+            setHoverIdx(next);
+          };
+          const sampleIdx = Math.max(0, hi);
+          const sampleText = n ? [
+            chart.labels[sampleIdx],
+            showDown ? t('chart.down') + ' ' + fmtBytesStr(chart.down[sampleIdx], true) : '',
+            showUp ? t('chart.up') + ' ' + fmtBytesStr(chart.up[sampleIdx], true) : ''
+          ].filter(Boolean).join(', ') : undefined;
+          const hiPct = X(sampleIdx) / W * 100;
+          const preferredLeft = hiPct > 50
+            ? 'calc(' + hiPct + '% - var(--sg-tip-width) - 10px)'
+            : 'calc(' + hiPct + '% + 10px)';
+          const tipStyle = {
+            '--sg-tip-width': 'min(158px, calc(100% - 16px))',
+            left: 'clamp(8px, ' + preferredLeft + ', calc(100% - var(--sg-tip-width) - 8px))'
+          };
+          const ticks = tickLabels(chart.labels, 6);
           return h('div', { className: 'sg-chart' },
             h('div', { className: 'sg-chart-wrap' },
               h('div', { className: 'sg-yaxis sg-mono', 'aria-hidden': true },
                 h('span', null, fmtBytesStr(MAX, true)),
                 h('span', null, fmtBytesStr(MAX / 2, true)),
                 h('span', null, '0 B/s')),
-              h('div', { className: 'sg-plot', onMouseMove: onMove, onMouseLeave: function () { setHoverIdx(-1); } },
+              h('div', {
+                className: 'sg-plot',
+                role: n ? 'slider' : undefined,
+                tabIndex: n ? 0 : undefined,
+                'aria-label': n ? t('chart.title') : undefined,
+                'aria-description': n ? t('chart.keyboard') : undefined,
+                'aria-valuemin': n ? 1 : undefined,
+                'aria-valuemax': n || undefined,
+                'aria-valuenow': n ? sampleIdx + 1 : undefined,
+                'aria-valuetext': sampleText,
+                onFocus: n ? function () { setHoverIdx(function (i) { return Math.max(0, i); }); } : undefined,
+                onBlur: function () { setHoverIdx(-1); },
+                onKeyDown: n ? onKey : undefined,
+                onPointerDown: function (e) {
+                  if (n && e.isPrimary && e.pointerType !== 'mouse') e.currentTarget.focus({ preventScroll: true });
+                  pickPointerSample(e);
+                },
+                onPointerMove: function (e) {
+                  if (e.pointerType === 'mouse' || e.buttons > 0) pickPointerSample(e);
+                },
+                onPointerLeave: function (e) {
+                  if (e.pointerType === 'mouse' && !e.currentTarget.matches(':focus-visible')) setHoverIdx(-1);
+                },
+                onPointerCancel: function (e) { if (e.isPrimary) setHoverIdx(-1); }
+              },
                 h('svg', { viewBox: '0 0 ' + W + ' ' + H, preserveAspectRatio: 'none', className: 'sg-chart-svg', 'aria-hidden': true },
                   grids,
                   showDown ? h('path', { key: 'ad', d: area(chart.down), className: 'sg-area-down' }) : null,
@@ -1105,7 +1419,7 @@ window.__ModuleLoader__.load({
                 hi >= 0 ? h('div', { className: 'sg-crosshair', style: { left: hiPct + '%' } }) : null,
                 hi >= 0 && showDown ? h('div', { className: 'sg-hover-dot is-down', style: { left: hiPct + '%', top: (Y(chart.down[hi]) / H * 100) + '%' } }) : null,
                 hi >= 0 && showUp ? h('div', { className: 'sg-hover-dot is-up', style: { left: hiPct + '%', top: (Y(chart.up[hi]) / H * 100) + '%' } }) : null,
-                hi >= 0 ? h('div', { className: 'sg-tooltip sg-mono', style: tipStyle },
+                hi >= 0 ? h('div', { className: 'sg-tooltip sg-mono', style: tipStyle, 'aria-hidden': true },
                   h('div', { className: 'sg-sub' }, chart.labels[hi] || ''),
                   showDown ? h('div', { className: 'sg-tip-row' },
                     h('span', { className: 'sg-tip-lbl sg-tone-brand' }, h('span', { className: 'sg-legend-dot' }), t('chart.down')),
@@ -1113,8 +1427,9 @@ window.__ModuleLoader__.load({
                   showUp ? h('div', { className: 'sg-tip-row' },
                     h('span', { className: 'sg-tip-lbl sg-tone-success' }, h('span', { className: 'sg-legend-dot' }), t('chart.up')),
                     h('b', null, fmtBytesStr(chart.up[hi], true))) : null) : null)),
-            h('div', { className: 'sg-xaxis' }, tickLabels(chart.labels, 6).map(function (tk, i) {
-              return h('span', { key: i, className: 'sg-mono sg-tick' + (tk.odd ? ' sg-tick-odd' : '') }, tk.label);
+            h('div', { className: 'sg-xaxis' }, ticks.map(function (tick, i) {
+              const edge = i === 0 || i === ticks.length - 1;
+              return h('span', { key: i, className: 'sg-mono sg-tick' + (edge ? ' sg-tick-edge' : tick.odd ? ' sg-tick-odd' : '') }, tick.label);
             })),
             h('div', { className: 'sg-chart-foot' },
               h('span', { className: 'sg-sub' }, t('chart.sampled')),
@@ -1130,9 +1445,8 @@ window.__ModuleLoader__.load({
                 h('span', { className: 'sg-num sg-metric-num' }, o.value),
                 o.unit ? h('span', { className: 'sg-unit' }, o.unit) : null),
               o.sub ? h('span', { className: 'sg-sub' }, o.sub) : null),
-            o.spark && o.spark.length > 1
-              ? Sparkline(o.spark, o.tone)
-              : h('div', { className: 'sg-spark-ph' }, o.foot || null));
+            o.spark && o.spark.length > 1 ? Sparkline(o.spark, o.tone) : null,
+            o.foot ? h('div', { className: 'sg-spark-ph' }, o.foot) : null);
         }
         function Legend(items) {
           return h('div', { className: 'sg-legend' }, items.map(function (it) {
@@ -1196,6 +1510,138 @@ window.__ModuleLoader__.load({
             typeof renderControl === 'function' ? renderControl(labelId) : renderControl);
         }
 
+        const detailTitles = {
+          rules: 'ep.rules', policies: 'ep.policies', modules: 'ep.modules', dns: 'ep.dns', requests: 'requests.title',
+          devices: 'devices.title', nodes: 'quality.title', events: 'events.title', interfaces: 'detail.interfaces', profile: 'ep.profile'
+        };
+        const detailFilters = {
+          policies: ['group', 'proxy'], modules: ['enabled', 'disabled'], requests: ['failed', 'active', 'completed'],
+          events: ['error', 'warn', 'brand', 'idle']
+        };
+
+        function detailValue(key, value) {
+          if (typeof value === 'boolean') return t('detail.' + (value ? 'yes' : 'no'));
+          if (typeof value !== 'number') return value || '—';
+          if (key === 'inBytes' || key === 'outBytes') return fmtBytesStr(value, false);
+          if (key === 'inSpeed' || key === 'outSpeed') return fmtBytesStr(value, true);
+          if (key === 'rtt') return value + ' ms';
+          if (key === 'timestamp' || key === 'startDate' || key === 'checkedAt') {
+            const date = new Date(value < 1e12 ? value * 1000 : value);
+            return isNaN(date.getTime()) ? '—' : date.toLocaleString();
+          }
+          return String(value);
+        }
+
+        function DetailDrawer({ detail, onClose }) {
+          const dialogRef = useRef(null);
+          const [query, setQuery] = useState('');
+          const [filter, setFilter] = useState(detail.filter || 'all');
+          const [offset, setOffset] = useState(0);
+          const [previousOffsets, setPreviousOffsets] = useState([]);
+          const [reload, setReload] = useState(0);
+          const [result, setResult] = useState(null);
+          const [copyStatus, setCopyStatus] = useState('');
+          const title = detail.title || t(detailTitles[detail.kind]);
+          const localItems = detail.items;
+          const limit = 25;
+          const requestKey = JSON.stringify([query, filter, offset, reload]);
+          const current = result && result.key === requestKey ? result : null;
+          const body = current && current.body;
+          const rows = localItems || (body && body.items) || [];
+
+          useEffect(function () {
+            const dialog = dialogRef.current;
+            const scroller = dialog ? dialog.closest('.sg-root') : null;
+            const originalOverflow = scroller ? scroller.style.overflowY : '';
+            if (dialog) dialog.showModal();
+            if (scroller) scroller.style.overflowY = 'hidden';
+            return function () {
+              if (scroller) scroller.style.overflowY = originalOverflow;
+              if (dialog && dialog.open) dialog.close();
+              if (detail.trigger && detail.trigger.isConnected) detail.trigger.focus({ preventScroll: true });
+            };
+          }, []);
+
+          useEffect(function () {
+            if (localItems) return;
+            const controller = new AbortController();
+            const params = new URLSearchParams({ kind: detail.kind, offset, limit });
+            if (query.trim()) params.set('q', query.trim());
+            if (filter !== 'all') params.set('filter', filter);
+            if (detail.id != null) params.set('id', detail.id);
+            if (detail.connectionId) params.set('connectionId', detail.connectionId);
+            if (detail.revision != null) params.set('revision', detail.revision);
+            const timer = setTimeout(function () {
+              api('/surge-api/detail?' + params, { signal: controller.signal }).then(function (response) {
+                if (!controller.signal.aborted) setResult({ key: requestKey, body: response });
+              }).catch(function (error) {
+                if (!controller.signal.aborted) setResult({ key: requestKey, body: { ok: false, message: error.message } });
+              });
+            }, query ? 180 : 0);
+            return function () { clearTimeout(timer); controller.abort(); };
+          }, [requestKey]);
+
+          const changeOffset = function (next) {
+            setOffset(next);
+            dialogRef.current.querySelector('.sg-detail-body').scrollTop = 0;
+          };
+          const renderItem = function (row, index) {
+            const fields = Object.entries(row.fields || {});
+            const copyText = row.copyText || [row.title].concat(fields.map(function ([key, value]) {
+              return t('detail.' + key) + ' · ' + detailValue(key, value);
+            })).join('\n');
+            return h('article', { className: 'sg-detail-item', key: String(row.id) + ':' + index },
+              h('h3', null, row.title),
+              fields.length ? h('dl', { className: 'sg-detail-fields' }, fields.map(function ([key, value]) {
+                const label = t('detail.' + key);
+                return h(React.Fragment, { key }, h('dt', null, label === 'detail.' + key ? key : label), h('dd', null, detailValue(key, value)));
+              })) : null,
+              row.action || null,
+              detail.id != null || localItems || detail.kind === 'requests' ? Btn({ label: t('detail.copy'), sm: true, onClick: async function () {
+                try { await navigator.clipboard.writeText(copyText); setCopyStatus('copied'); }
+                catch { setCopyStatus('copyError'); }
+              } }) : null);
+          };
+
+          const options = detail.id == null && detailFilters[detail.kind];
+          return h('dialog', {
+            ref: dialogRef, className: 'sg-detail-drawer', 'aria-labelledby': 'sg-detail-title',
+            onCancel: function (e) { e.preventDefault(); onClose(); },
+            onClick: function (e) {
+              if (e.target !== e.currentTarget) return;
+              const rect = e.currentTarget.getBoundingClientRect();
+              if (e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom) onClose();
+            }
+          },
+            h('header', { className: 'sg-detail-head' },
+              h('div', null, h('h2', { id: 'sg-detail-title' }, title), detail.subtitle ? h('p', { className: 'sg-sub' }, detail.subtitle) : null),
+              h('button', { type: 'button', className: 'sg-icon-btn', 'aria-label': t('detail.close'), onClick: onClose }, '×')),
+            !localItems && detail.id == null && detail.kind !== 'profile' ? h('div', { className: 'sg-detail-tools' },
+              h('input', { type: 'search', className: 'sg-input', placeholder: t('detail.search'), 'aria-label': t('detail.search'), value: query, maxLength: 120,
+                onChange: function (e) { setQuery(e.target.value); setPreviousOffsets([]); changeOffset(0); } }),
+              options ? h('select', { className: 'sg-select sg-select-sm', 'aria-label': t('detail.filter'), value: filter, onChange: function (e) { setFilter(e.target.value); setPreviousOffsets([]); changeOffset(0); } },
+                ['all'].concat(options).map(function (value) { return h('option', { key: value, value }, t('detail.' + value)); })) : null) : null,
+            h('div', { className: 'sg-detail-body', 'aria-busy': !localItems && !current },
+              !localItems && !current ? h('p', { role: 'status' }, t('st.loading')) : null,
+              body && !body.ok ? h('div', { className: 'sg-notice is-danger', role: 'alert' }, tCode(body, 'status.unavailable'), ' ',
+                Btn({ label: t('action.retry'), sm: true, onClick: function () { setReload(reload + 1); } })) : null,
+              body && body.stale ? h('div', { className: 'sg-notice is-warn', role: 'status' }, t('status.stale'), body.updatedAt ? ' · ' + fmtTime(new Date(body.updatedAt)) : '') : null,
+              (localItems || (body && body.ok)) && !rows.length ? h('p', null, t('detail.empty')) : null,
+              rows.map(renderItem)),
+            h('div', { className: 'sg-detail-pages' },
+              copyStatus ? h('span', { role: 'status', className: 'sg-sub' }, t('detail.' + copyStatus)) : null,
+              body && body.ok && (offset > 0 || body.total > rows.length) ? h(React.Fragment, null,
+                Btn({ label: t('detail.previous'), sm: true, disabled: previousOffsets.length === 0, onClick: function () {
+                  changeOffset(previousOffsets[previousOffsets.length - 1]);
+                  setPreviousOffsets(previousOffsets.slice(0, -1));
+                } }),
+                h('span', { className: 'sg-sub' }, (rows.length ? offset + 1 : 0) + '–' + (rows.length ? offset + rows.length : 0) + ' / ' + body.total),
+                Btn({ label: t('detail.next'), sm: true, disabled: !rows.length || offset + rows.length >= body.total, onClick: function () {
+                  setPreviousOffsets(previousOffsets.concat(offset));
+                  changeOffset(offset + rows.length);
+                } })) : null));
+        }
+
         /* ---- Sidebar icon: owner props are { size, active } ---- */
         function PanelIcon(props) {
           const size = (props && props.size) || 20;
@@ -1217,6 +1663,12 @@ window.__ModuleLoader__.load({
          * ================================================================ */
         function Overview(props) {
           const ui = props.ui;
+          const detailButton = function (kind, label, options) {
+            const text = label || t('detail.open');
+            return h('button', { type: 'button', className: 'sg-metric-link', 'aria-haspopup': 'dialog',
+              'aria-label': t(detailTitles[kind]) + ' · ' + text,
+              onClick: function (e) { props.openDetail(kind, e.currentTarget, options); } }, text, I('chevronDown', 12));
+          };
           const [expandedEvents, setExpandedEvents] = useState({});
           const [showRequests, setShowRequests] = useState(false);
           const state = store.get();
@@ -1249,7 +1701,7 @@ window.__ModuleLoader__.load({
           const d = s ? fmtBytes(s.down, true) : { value: '—', unit: '' };
           const u = s ? fmtBytes(s.up, true) : { value: '—', unit: '' };
           const sess = s ? fmtBytes(s.session, false) : { value: '—', unit: '' };
-          const reqFoot = available('requests') && recentReqs.length
+          const reqFoot = s
             ? h('button', {
                 type: 'button', className: 'sg-metric-link',
                 'aria-expanded': showRequests ? 'true' : 'false',
@@ -1257,9 +1709,9 @@ window.__ModuleLoader__.load({
               }, t(showRequests ? 'requests.hide' : 'requests.show'))
             : null;
           const metrics = [
-            { label: 'metrics.download', value: d.value, unit: d.unit, icon: 'download', tone: 'sg-tone-brand', spark: downArr },
-            { label: 'metrics.upload', value: u.value, unit: u.unit, icon: 'upload', tone: 'sg-tone-success', spark: upArr },
-            { label: 'metrics.session', value: sess.value, unit: sess.unit, icon: 'activity', tone: 'sg-tone-idle', spark: [] },
+            { label: 'metrics.download', value: d.value, unit: d.unit, icon: 'download', tone: 'sg-tone-brand', spark: downArr, foot: detailButton('interfaces', t('detail.interfaces')) },
+            { label: 'metrics.upload', value: u.value, unit: u.unit, icon: 'upload', tone: 'sg-tone-success', spark: upArr, foot: detailButton('interfaces', t('detail.interfaces')) },
+            { label: 'metrics.session', value: sess.value, unit: sess.unit, icon: 'activity', tone: 'sg-tone-idle', spark: [], foot: detailButton('interfaces', t('detail.interfaces')) },
             { label: 'metrics.uptime', value: s && s.uptime != null ? fmtUptime(s.uptime, t) : '—', unit: '', icon: 'clock', tone: 'sg-tone-warn', spark: [] },
             { label: 'metrics.conns', value: count('requests', s && s.conns), unit: '', icon: 'link', tone: 'sg-tone-brand', sub: available('requests') ? (s.connsFailed + ' ' + t('metrics.failed')) : '', spark: [], foot: reqFoot }
           ];
@@ -1300,29 +1752,30 @@ window.__ModuleLoader__.load({
               return h(MetricCard, Object.assign({ key: i }, m));
             })),
 
-            showRequests && available('requests')
+            showRequests
               ? h('div', { className: 'sg-card' },
                   h('div', { className: 'sg-card-h' },
                     h('h2', { className: 'sg-card-t' }, I('link', 16), t('requests.title')),
-                    Btn({ label: t('requests.hide'), sm: true, onClick: function () { setShowRequests(false); } })),
+                    h('div', { className: 'sg-h-actions' }, detailButton('requests', t('detail.all')),
+                       Btn({ label: t('requests.hide'), sm: true, onClick: function () { setShowRequests(false); } }))),
                   recentReqs.length
-                    ? h('div', { className: 'sg-table-wrap' },
-                        h('table', { className: 'sg-diag-tbl' },
-                          h('thead', null, h('tr', null,
-                            h('th', null, t('requests.target')),
-                            h('th', null, t('requests.policy')),
-                            h('th', null, t('requests.status')),
-                            h('th', null, t('requests.traffic')))),
-                          h('tbody', null, recentReqs.map(function (rq) {
+                    ? h('div', { className: 'sg-table-wrap', role: 'region', tabIndex: 0, 'aria-label': t('requests.title') },
+                        h('table', { className: 'sg-diag-tbl', role: 'table' },
+                          h('thead', { role: 'rowgroup' }, h('tr', { role: 'row' },
+                            h('th', { role: 'columnheader', scope: 'col' }, t('requests.target')),
+                            h('th', { role: 'columnheader', scope: 'col' }, t('requests.policy')),
+                            h('th', { role: 'columnheader', scope: 'col' }, t('requests.status')),
+                            h('th', { role: 'columnheader', scope: 'col' }, t('requests.traffic')))),
+                          h('tbody', { role: 'rowgroup' }, recentReqs.map(function (rq) {
                             const cls = rq.failed ? 'sg-pill-fail' : (!rq.completed ? 'sg-pill-warn' : 'sg-pill-ok');
                             const stText = rq.failed ? t('requests.failed') : (!rq.completed ? t('requests.active') : t('requests.done'));
-                            return h('tr', { key: rq.id },
-                              h('td', { className: 'sg-mono sg-req-target', title: rq.target }, rq.target),
-                              h('td', null, rq.policy || '—'),
-                              h('td', null, h('span', { className: cls, title: rq.status || '' }, stText + (rq.status ? ' · ' + rq.status : ''))),
-                              h('td', { className: 'sg-mono' }, fmtBytesStr((rq.inBytes || 0) + (rq.outBytes || 0), false)));
+                            return h('tr', { key: rq.id, role: 'row' },
+                              h('td', { role: 'cell', className: 'sg-mono', 'data-label': t('requests.target') }, detailButton('requests', rq.target, { id: rq.id })),
+                              h('td', { role: 'cell', 'data-label': t('requests.policy') }, rq.policy || '—'),
+                              h('td', { role: 'cell', 'data-label': t('requests.status') }, h('span', { className: cls }, stText + (rq.status ? ' · ' + rq.status : ''))),
+                              h('td', { role: 'cell', className: 'sg-mono', 'data-label': t('requests.traffic') }, fmtBytesStr((rq.inBytes || 0) + (rq.outBytes || 0), false)));
                           }))))
-                    : h('div', { className: 'sg-sub' }, t('requests.empty')))
+                    : h('div', { className: 'sg-sub' }, t(available('requests') ? 'requests.empty' : 'status.unavailable')))
               : null,
 
             endpointHint(['requests']),
@@ -1344,7 +1797,7 @@ window.__ModuleLoader__.load({
               h('div', { className: 'sg-card' },
                 h('div', { className: 'sg-card-h' },
                   h('h2', { className: 'sg-card-t' }, I('wifi', 16), t('devices.title')),
-                  h('span', { className: 'sg-sub' }, count('devices', s && s.devicesCount) + ' ' + t('devices.online'))),
+                  detailButton('devices', t('detail.all') + ' · ' + count('devices', s && s.devicesCount) + ' ' + t('devices.online'))),
                 devices.length
                   ? h('div', { className: 'sg-dev-list' }, devices.map(function (dv) {
                       const isSel = selDevice && selDevice.key === dv.key;
@@ -1376,7 +1829,8 @@ window.__ModuleLoader__.load({
                         h('b', { className: 'sg-mono' }, fmtBytesStr(selDevice.speed, true)),
                         ' · ',
                         t('devices.sessionTotal') + ' ',
-                        h('b', { className: 'sg-mono' }, fmtBytesStr(selDevice.bytes || 0, false))))
+                        h('b', { className: 'sg-mono' }, fmtBytesStr(selDevice.bytes || 0, false))),
+                       detailButton('devices', t('detail.open'), { id: selDevice.key }))
                   : null)),
 
             h('div', { className: 'sg-bottom-grid' },
@@ -1384,29 +1838,31 @@ window.__ModuleLoader__.load({
                 h('div', { className: 'sg-card-h' }, h('h2', { className: 'sg-card-t' }, I('globe', 16), t('network.title'))),
                 h('div', { className: 'sg-kv' },
                   kv('server', 'network.mode', available('outbound') ? (s.mode || '—') : '—', false),
-                  kv('shield', 'network.profile', available('profile') ? s.profile : '—', false),
+                  detailButton('profile', t('network.profile') + ' · ' + (available('profile') ? s.profile : '—')),
                   kv('globe', 'network.port', s ? String(s.apiPort) : '—', true),
-                  kv('link', 'network.rules', count('rules', counts.rules) + ' / ' + count('policies', counts.groups), true),
-                  kv('server', 'network.res', count('modules', counts.modules) + ' / ' + count('dns', counts.dns), true)),
+                  detailButton('rules', t('ep.rules') + ' · ' + count('rules', counts.rules)),
+                   detailButton('policies', t('ep.policies') + ' · ' + count('policies', counts.groups)),
+                  detailButton('modules', t('ep.modules') + ' · ' + count('modules', counts.modules)),
+                   detailButton('dns', t('ep.dns') + ' · ' + count('dns', counts.dns))),
                 endpointHint(['outbound', 'profile', 'rules', 'policies', 'modules', 'dns'])),
 
               h('div', { className: 'sg-card' },
                 h('div', { className: 'sg-card-h' },
                   h('h2', { className: 'sg-card-t' }, I('radio', 16), t('quality.title')),
-                  h('span', { className: 'sg-sub' }, t('quality.latency'))),
+                  detailButton('nodes', t('detail.all'))),
                 nodes.length
                   ? nodes.map(function (node, i) {
                       return h('div', { key: node.name || i, className: 'sg-node' },
                         h('div', { className: 'sg-node-top' },
-                          h('span', { className: 'sg-node-name' }, node.name),
-                          h('span', { className: 'sg-node-ms sg-mono' }, fmtBytesStr(node.bytes, false))),
+                          h('span', { className: 'sg-node-name' }, detailButton('nodes', node.name, { id: node.name })),
+                          h('span', { className: 'sg-node-ms sg-mono' }, fmtBytesStr(node.bytes, false), ' · ', fmtBytesStr(node.speed, true))),
                         h('div', { className: 'sg-track' },
-                          h('span', { className: 'sg-track-fill sg-tone-brand', style: { width: Math.max(3, node.share) + '%' } })));
+                          h('span', { className: 'sg-track-fill ' + (node.name === 'DIRECT' ? 'sg-tone-idle' : 'sg-tone-brand'), style: { width: Math.max(3, node.share) + '%' } })));
                     })
                   : h('div', { className: 'sg-empty' }, s ? t('quality.empty') : t('status.unavailable'))),
 
               h('div', { className: 'sg-card' },
-                h('div', { className: 'sg-card-h' }, h('h2', { className: 'sg-card-t' }, I('clock', 16), t('events.title'))),
+                h('div', { className: 'sg-card-h' }, h('h2', { className: 'sg-card-t' }, I('clock', 16), t('events.title')), detailButton('events', t('detail.all'))),
                 merged.length
                   ? h('div', { className: 'sg-timeline' }, merged.map(function (ev) {
                       const open = !!expandedEvents[ev.key];
@@ -1420,7 +1876,7 @@ window.__ModuleLoader__.load({
                         h('span', { className: 'sg-event-dot ' + toneOf(ev.tone) }),
                         h('span', { className: 'sg-event-txt' }, ev.text),
                         ev.count > 1 ? h('span', { className: 'sg-event-count sg-mono' }, '×' + ev.count) : null,
-                        h('span', { className: 'sg-event-time sg-mono' }, ev.time));
+                        h('span', { className: 'sg-event-time sg-mono' }, ev.time), I('chevronDown', 12));
                     }))
                   : h('div', { className: 'sg-empty' }, available('events') ? t('events.empty') : t('status.unavailable')),
                 endpointHint(['events']))),
@@ -1436,6 +1892,7 @@ window.__ModuleLoader__.load({
           const onConnectionsChanged = props && props.onConnectionsChanged;
           const [data, setData] = useState({ connections: [], activeId: 'local', loading: true, error: '' });
           const [fleet, setFleet] = useState({ fleet: [], totals: { online: 0, total: 0, down: 0, up: 0, conns: 0 }, loading: true, error: '', updated: null });
+          const [fleetFilter, setFleetFilter] = useState('all');
           const [form, setForm] = useState(null);
           const [formError, setFormError] = useState('');
           const [busy, setBusy] = useState('');
@@ -1501,9 +1958,18 @@ window.__ModuleLoader__.load({
           };
           const reloadAll = function () { loadConns(); loadFleet(); void store.fetch(); };
 
-          const onActivate = function (id) {
-            call('/surge-api/connection/activate', { id: id }).then(function (r) {
-              if (r.ok) { setNotice({ text: t('dm.activated'), tone: 'is-ok' }); reloadAll(); }
+          const onActivate = function (id, onSuccess) {
+            return call('/surge-api/connection/activate', { id }).then(function (result) {
+              if (result.ok) {
+                setNotice({ text: t('dm.activated'), tone: 'is-ok' });
+                if (onSuccess) {
+                  void store.fetch();
+                  onSuccess();
+                } else {
+                  reloadAll();
+                }
+              }
+              return result;
             });
           };
           const onDelete = function (id) {
@@ -1604,16 +2070,89 @@ window.__ModuleLoader__.load({
             { v: 'tvos', l: t('dm.platform.tvos') }, { v: 'macos', l: t('dm.platform.macos') }
           ];
           const protocolOpts = [{ v: 'http', l: 'HTTP' }, { v: 'https', l: 'HTTPS' }];
-          const fleetById = {};
-          for (const f of fleet.fleet) fleetById[f.id] = f;
+          const fleetById = new Map(fleet.fleet.map(function (probe) { return [probe.id, probe]; }));
           const totals = fleet.totals;
-          const localConn = data.connections.find(function (c) { return c.isLocal; }) || { id: 'local', protocol: 'http', host: '127.0.0.1', port: 0, active: data.activeId === 'local', isLocal: true };
-          const localFleet = fleetById.local || {};
-          const localStatusCls = localFleet.online ? ' is-online' : (!fleet.loading && !fleet.error && localFleet.id ? ' is-offline' : '');
-          const localStatusLabel = fleet.loading ? t('st.loading') : fleet.error || !localFleet.id ? t('status.unavailable') : localFleet.online ? t('dm.status.online') : t('dm.status.offline');
-          const localMsg = localFleet.code ? tCode(localFleet) : localFleet.message;
+          const localConn = data.connections.find(function (c) { return c.isLocal; }) || { id: 'local', protocol: 'http', host: '127.0.0.1', port: 0, isLocal: true };
           const saved = data.connections.filter(function (c) { return !c.isLocal; });
-          const extra = saved.length;
+          const connections = [localConn].concat(saved).filter(function (c) {
+            if (fleetFilter === 'all') return true;
+            const probe = fleetById.get(c.id);
+            return probe && probe.online === (fleetFilter === 'online');
+          });
+          const partialRates = fleet.updated && totals.online < totals.total ? t('status.partial') : '';
+
+          function DetailAction({ id, active }) {
+            const [pending, setPending] = useState(false);
+            const [failed, setFailed] = useState(false);
+            return h('div', { className: 'sg-conn-actions' },
+              Btn({ label: t(active ? 'tab.overview' : 'detail.activate'), icon: active ? 'activity' : 'check', sm: true, disabled: pending,
+                onClick: async function () {
+                  if (active) { props.onOverview(); return; }
+                  setPending(true);
+                  setFailed(false);
+                  const result = await onActivate(id, props.onOverview);
+                  if (!result.ok) {
+                    setPending(false);
+                    if (!result.cancelled) setFailed(true);
+                  }
+                } }),
+              failed ? h('div', { className: 'sg-notice is-danger', role: 'alert' }, t('detail.switchError')) : null);
+          }
+
+          function renderConnection(c) {
+            const probe = fleetById.get(c.id);
+            const online = probe && probe.online === true;
+            const active = data.activeId === c.id;
+            const noKey = !c.isLocal && !c.hasKey && !online;
+            const statusKey = online ? 'dm.status.online' : noKey ? 'dm.status.noKey' : probe ? 'dm.status.offline' : fleet.loading ? 'st.loading' : 'status.unavailable';
+            const statusClass = online ? ' is-online' : noKey ? ' is-warn' : probe ? ' is-offline' : '';
+            const host = c.host.includes(':') && !c.host.startsWith('[') ? '[' + c.host + ']' : c.host;
+            const name = c.isLocal ? t('dm.localName') : c.name;
+            const message = probe && (probe.code ? tCode(probe) : probe.message);
+            const fields = {
+              status: t(statusKey),
+              address: c.port ? c.protocol + '://' + host + ':' + c.port : null,
+              mode: online && probe.modeAvailable !== false ? probe.mode : null,
+              rtt: online && Number.isFinite(probe.rtt) ? probe.rtt : null,
+              conns: online && probe.connsAvailable !== false && Number.isFinite(probe.conns) ? probe.conns : null,
+              inSpeed: online && Number.isFinite(probe.down) ? probe.down : null,
+              outSpeed: online && Number.isFinite(probe.up) ? probe.up : null,
+              checkedAt: probe ? probe.checkedAt ?? fleet.updated?.getTime() : null
+            };
+            const meta = function (icon, key) {
+              return fields[key] == null ? null : h('span', { className: 'sg-conn-meta-item' },
+                I(icon, 13), t('detail.' + key) + ' ', h('b', { className: 'sg-mono' }, detailValue(key, fields[key])));
+            };
+            const confirming = confirmId === c.id;
+            return h('div', { className: 'sg-card', key: c.id },
+              h('div', { className: 'sg-conn-top' },
+                h('span', { className: 'sg-ico-tile ' + (c.isLocal ? 'sg-tone-brand' : 'sg-tone-idle') }, I(c.isLocal ? 'laptop' : 'server', 16)),
+                h('span', { className: 'sg-conn-name' }, name),
+                active ? h('span', { className: 'sg-badge-sm is-active' }, t('dm.active')) : null,
+                h('span', { className: 'sg-badge-sm' + statusClass }, fields.status)),
+              h('div', { className: 'sg-conn-meta' },
+                meta('globe', 'address'),
+                !c.isLocal ? h('span', { className: 'sg-conn-meta-item' }, I('shield', 13), t('dm.keyBadge') + ' ', h('b', null, c.hasKey ? t('dm.field.keyStored') : t('dm.field.keyMissing'))) : null,
+                !c.isLocal ? h('span', { className: 'sg-conn-meta-item' }, I('server', 13), t('dm.field.platform') + ' ', h('b', null, t('dm.platform.' + (c.platform || 'auto')) || c.platform)) : null,
+                meta('activity', 'rtt'), meta('download', 'inSpeed'), meta('upload', 'outSpeed'),
+                c.isLocal ? h('span', { className: 'sg-conn-meta-item' }, I('info', 13), h('span', null, t('dm.localHint'))) : null),
+              message ? h('div', { className: 'sg-notice ' + (online ? 'is-warn' : 'is-danger') }, message) : null,
+              renderTestBanner(c.id),
+              confirming ? h('div', { className: 'sg-notice is-danger', role: 'alert' }, t('dm.confirmDelete')) : null,
+              h('div', { className: 'sg-conn-actions' },
+                h('button', { type: 'button', className: 'sg-btn sm', disabled: !!busy, 'aria-haspopup': 'dialog', 'aria-label': t('detail.open') + ' · ' + name,
+                  onClick: function (event) {
+                    props.openDetail(null, event.currentTarget, { title: t('detail.open'), items: [
+                      { id: c.id, title: name, fields, action: h(DetailAction, { id: c.id, active }) }
+                    ] });
+                  } }, I('chevronDown', 14), t('detail.open')),
+                Btn({ label: t('dm.activate'), icon: 'check', sm: true, disabled: active || !!busy, onClick: function () { onActivate(c.id); } }),
+                Btn({ label: t('dm.test'), icon: 'activity', sm: true, disabled: !!busy, onClick: function () { onTest(c); } }),
+                !c.isLocal ? Btn({ label: t('dm.edit'), icon: 'settings', sm: true, disabled: !!busy, onClick: function () { openEdit(c); } }) : null,
+                !c.isLocal ? Btn({ label: t(confirming ? 'dm.confirmDeleteBtn' : 'dm.delete'), icon: 'trash', danger: true, sm: true, disabled: !!busy,
+                  onClick: function () { if (confirming) onDelete(c.id); else setConfirmId(c.id); } }) : null,
+                confirming ? Btn({ label: t('dm.cancel'), sm: true, onClick: function () { setConfirmId(''); } }) : null));
+          }
 
           return h('div', { className: 'sg-stack' },
             h('div', { className: 'sg-card' },
@@ -1626,11 +2165,11 @@ window.__ModuleLoader__.load({
                   Btn({ label: t('dm.add'), icon: 'plus', primary: true, sm: true, onClick: openAdd, disabled: !!busy })))),
 
             h('div', { className: 'sg-strip' },
-              Stat(t('dm.saved'), data.loading || data.error ? '—' : String(extra + 1), t('dm.local')),
+              Stat(t('dm.saved'), data.loading || data.error ? '—' : String(saved.length + 1), t('dm.local')),
               Stat(t('dm.online'), fleet.updated ? totals.online + ' / ' + totals.total : '—', t('dm.fleet.title')),
               Stat(t('dm.activeReqs'), fleet.updated && totals.connsComplete ? String(totals.conns) : '—', fleet.updated && !totals.connsComplete ? t('status.partial') : ''),
-              Stat(t('dm.totalDown'), fleet.updated ? fmtBytes(totals.down, true).value : '—', fleet.updated ? fmtBytes(totals.down, true).unit + (totals.online < totals.total ? ' · ' + t('status.partial') : '') : ''),
-              Stat(t('dm.totalUp'), fleet.updated ? fmtBytes(totals.up, true).value : '—', fleet.updated ? fmtBytes(totals.up, true).unit + (totals.online < totals.total ? ' · ' + t('status.partial') : '') : '')),
+              Stat(t('dm.totalDown'), fleet.updated ? fmtBytesStr(totals.down, true) : '—', partialRates),
+              Stat(t('dm.totalUp'), fleet.updated ? fmtBytesStr(totals.up, true) : '—', partialRates)),
 
             data.error ? h('div', { className: 'sg-error', role: 'alert' }, data.error) : null,
             fleet.error ? h('div', { className: 'sg-error', role: 'alert' }, fleet.error + (fleet.updated ? ' · ' + t('status.stale') + ' ' + fmtTime(fleet.updated) : '')) : null,
@@ -1665,63 +2204,15 @@ window.__ModuleLoader__.load({
               : null,
 
             /* Connection cards */
-            extra === 0 && !data.loading && !data.error
+            saved.length === 0 && !data.loading && !data.error
               ? h('div', { className: 'sg-callout' }, I('info', 16), h('span', null, t('dm.emptyHint')))
               : null,
 
-            h('div', { className: 'sg-conn-list' },
-              /* Local entry — displays real Fleet status, address, RTT & throughput */
-              h('div', { className: 'sg-card', key: 'local' },
-                h('div', { className: 'sg-conn-top' },
-                  h('span', { className: 'sg-ico-tile sg-tone-brand' }, I('laptop', 16)),
-                  h('span', { className: 'sg-conn-name' }, t('dm.localName')),
-                  data.activeId === 'local' ? h('span', { className: 'sg-badge-sm is-active' }, t('dm.active')) : null,
-                  h('span', { className: 'sg-badge-sm' + localStatusCls }, localStatusLabel)),
-                h('div', { className: 'sg-conn-meta' },
-                  localConn.port ? h('span', { className: 'sg-conn-meta-item' }, I('globe', 13), t('dm.hostPort') + ' ', h('b', { className: 'sg-mono' }, (localConn.protocol || 'http') + '://' + (localConn.host || '127.0.0.1') + ':' + localConn.port)) : null,
-                  localFleet.online ? h('span', { className: 'sg-conn-meta-item' }, I('activity', 13), t('dm.rtt') + ' ', h('b', { className: 'sg-mono' }, (localFleet.rtt || 0) + ' ' + t('dm.rttUnit'))) : null,
-                  localFleet.online ? h('span', { className: 'sg-conn-meta-item' }, I('download', 13), t('dm.totalDown') + ' ', h('b', { className: 'sg-mono' }, fmtBytesStr(localFleet.down, true))) : null,
-                  localFleet.online ? h('span', { className: 'sg-conn-meta-item' }, I('upload', 13), t('dm.totalUp') + ' ', h('b', { className: 'sg-mono' }, fmtBytesStr(localFleet.up, true))) : null,
-                  h('span', { className: 'sg-conn-meta-item' }, I('info', 13), h('span', null, t('dm.localHint')))),
-                localMsg ? h('div', { className: 'sg-notice ' + (localFleet.online ? 'is-warn' : 'is-danger') }, localMsg) : null,
-                renderTestBanner('local'),
-                h('div', { className: 'sg-conn-actions' },
-                  Btn({ label: t('dm.activate'), icon: 'check', sm: true, disabled: data.activeId === 'local' || !!busy, onClick: function () { onActivate('local'); } }),
-                  Btn({ label: t('dm.test'), icon: 'activity', sm: true, disabled: !!busy, onClick: function () { onTest({ id: 'local' }); } }))),
-
-              saved.map(function (c) {
-                const ff = fleetById[c.id] || {};
-                const noKey = !c.hasKey && !ff.online;
-                const statusCls = ff.online ? ' is-online' : (noKey ? ' is-warn' : ' is-offline');
-                const statusLabel = fleet.loading ? t('st.loading') : noKey ? t('dm.status.noKey') : fleet.error || !ff.id ? t('status.unavailable') : ff.online ? t('dm.status.online') : t('dm.status.offline');
-                const ffMsg = ff.code ? tCode(ff) : ff.message;
-                return h('div', { className: 'sg-card', key: c.id },
-                  h('div', { className: 'sg-conn-top' },
-                    h('span', { className: 'sg-ico-tile sg-tone-idle' }, I('server', 16)),
-                    h('span', { className: 'sg-conn-name' }, c.name),
-                    c.active ? h('span', { className: 'sg-badge-sm is-active' }, t('dm.active')) : null,
-                    h('span', { className: 'sg-badge-sm' + statusCls }, statusLabel)),
-                  h('div', { className: 'sg-conn-meta' },
-                    h('span', { className: 'sg-conn-meta-item' }, I('globe', 13), t('dm.hostPort') + ' ', h('b', { className: 'sg-mono' }, c.protocol + '://' + (c.host.includes(':') ? '[' + c.host + ']' : c.host) + ':' + c.port)),
-                    h('span', { className: 'sg-conn-meta-item' }, I('shield', 13), t('dm.keyBadge') + ' ', h('b', null, c.hasKey ? t('dm.field.keyStored') : t('dm.field.keyMissing'))),
-                    h('span', { className: 'sg-conn-meta-item' }, I('server', 13), t('dm.field.platform') + ' ', h('b', null, t('dm.platform.' + (c.platform || 'auto')) || c.platform)),
-                    ff.online ? h('span', { className: 'sg-conn-meta-item' }, I('activity', 13), t('dm.rtt') + ' ', h('b', { className: 'sg-mono' }, (ff.rtt || 0) + ' ' + t('dm.rttUnit'))) : null,
-                    ff.online ? h('span', { className: 'sg-conn-meta-item' }, I('download', 13), t('dm.totalDown') + ' ', h('b', { className: 'sg-mono' }, fmtBytesStr(ff.down, true))) : null,
-                    ff.online ? h('span', { className: 'sg-conn-meta-item' }, I('upload', 13), t('dm.totalUp') + ' ', h('b', { className: 'sg-mono' }, fmtBytesStr(ff.up, true))) : null),
-                  ffMsg ? h('div', { className: 'sg-notice ' + (ff.online ? 'is-warn' : 'is-danger') }, ffMsg) : null,
-                  renderTestBanner(c.id),
-                  confirmId === c.id
-                    ? h('div', { className: 'sg-notice is-danger', role: 'alert' }, t('dm.confirmDelete'))
-                    : null,
-                  h('div', { className: 'sg-conn-actions' },
-                    Btn({ label: t('dm.activate'), icon: 'check', sm: true, disabled: c.active || !!busy, onClick: function () { onActivate(c.id); } }),
-                    Btn({ label: t('dm.test'), icon: 'activity', sm: true, disabled: !!busy, onClick: function () { onTest(c); } }),
-                    Btn({ label: t('dm.edit'), icon: 'settings', sm: true, disabled: !!busy, onClick: function () { openEdit(c); } }),
-                    confirmId === c.id
-                      ? Btn({ label: t('dm.confirmDeleteBtn'), icon: 'trash', danger: true, sm: true, disabled: !!busy, onClick: function () { onDelete(c.id); } })
-                      : Btn({ label: t('dm.delete'), icon: 'trash', danger: true, sm: true, disabled: !!busy, onClick: function () { setConfirmId(c.id); } }),
-                    confirmId === c.id ? Btn({ label: t('dm.cancel'), sm: true, onClick: function () { setConfirmId(''); } }) : null));
-              })),
+            h('div', null, Seg(fleetFilter, [
+              { v: 'all', l: 'detail.all' }, { v: 'online', l: 'detail.online' }, { v: 'offline', l: 'detail.offline' }
+            ], setFleetFilter, t('detail.filter'))),
+            h('div', { className: 'sg-conn-list' }, connections.map(renderConnection)),
+            !connections.length && !fleet.loading ? h('p', { className: 'sg-sub', role: 'status' }, t('detail.empty')) : null,
 
             fleet.loading ? h('div', { className: 'sg-sub' }, t('st.loading')) : null
           );
@@ -1732,10 +2223,14 @@ window.__ModuleLoader__.load({
          * active-connection info and an honest About note.
          * ================================================================ */
         function SettingsPanel(props) {
-          const fallbackActive = props && props.activeConnection;
+          const fallbackActive = props.activeConnection;
           const [diag, setDiag] = useState({ running: false, data: null, error: '' });
+          const [openChecks, setOpenChecks] = useState({});
+          const [copyState, setCopyState] = useState('');
           const [resetDone, setResetDone] = useState(false);
           const diagRequest = useRef(new AbortController());
+          const copyAttempt = useRef(0);
+          const diagId = React.useId();
           const resetTimer = useRef(null);
           const p = prefs.get();
           const set = function (patch) { prefs.set(patch); };
@@ -1747,6 +2242,8 @@ window.__ModuleLoader__.load({
             const controller = new AbortController();
             diagRequest.current = controller;
             setDiag({ running: false, data: null, error: '' });
+            setOpenChecks({});
+            setCopyState('');
             return function () { controller.abort(); };
           }, [s && s.connectionRevision, active && active.id]);
 
@@ -1769,6 +2266,9 @@ window.__ModuleLoader__.load({
           const evOpts = [4, 6, 8, 12].map(function (v) { return { v: v, l: String(v) }; });
 
           const runDiag = function () {
+            copyAttempt.current += 1;
+            setOpenChecks({});
+            setCopyState('');
             setDiag({ running: true, data: null, error: '' });
             const signal = diagRequest.current.signal;
             api('/surge-api/diagnostics', { signal }).then(function (r) {
@@ -1780,21 +2280,86 @@ window.__ModuleLoader__.load({
             });
           };
 
+          const endpoint = diag.data && diag.data.endpoint;
+          const gateway = t('st.diag.gateway') + ' · ' + (endpoint ? (endpoint.tls ? 'https://' : 'http://') + endpoint.base : '—');
+          const checks = diag.data && Array.isArray(diag.data.checks) ? diag.data.checks : [];
+          const columns = ['st.diag.endpoint', 'st.diag.status', 'st.diag.rtt', 'st.diag.shape'].map(function (key) { return t(key); });
+          const rows = checks.map(function (check) {
+            const status = check.status === 0 ? t('st.diag.noResponse') : String(check.status ?? '—');
+            const rtt = Number.isFinite(check.rtt) ? check.rtt + ' ' + t('dm.rttUnit') : '—';
+            return {
+              ok: check.ok,
+              path: String(check.path || '—'),
+              result: t(check.ok ? 'st.diag.ok' : 'st.diag.fail'),
+              status: status,
+              rtt: rtt,
+              shape: String(check.shape || '—'),
+              message: String(check.message || t('st.diag.noMessage'))
+            };
+          });
+          const report = function () {
+            return [gateway].concat(rows.map(function (row) {
+              return [
+                row.path + ' · ' + row.result,
+                t('st.diag.httpStatus') + ': ' + row.status,
+                columns[2] + ': ' + row.rtt,
+                columns[3] + ': ' + row.shape,
+                t('st.diag.message') + ': ' + row.message
+              ].join('\n');
+            })).join('\n\n');
+          };
+          const copyDiagnostics = async function () {
+            const attempt = ++copyAttempt.current;
+            const signal = diagRequest.current.signal;
+            let result = 'st.diag.copied';
+            try {
+              await navigator.clipboard.writeText(report());
+            } catch {
+              result = 'st.diag.copyFailed';
+            }
+            if (!signal.aborted && attempt === copyAttempt.current) setCopyState(result);
+          };
+
           const diagBody = diag.data
             ? h('div', null,
-                h('div', { className: 'sg-sub', style: { marginBottom: '10px' } }, t('st.diag.gateway') + ' · ' + (diag.data.endpoint ? (diag.data.endpoint.tls ? 'https://' : 'http://') + diag.data.endpoint.base : '—')),
-                h('div', { className: 'sg-table-wrap' },
-                  h('table', { className: 'sg-diag-tbl' },
-                    h('thead', null, h('tr', null,
-                      h('th', null, t('st.diag.endpoint')), h('th', null, t('st.diag.status')),
-                      h('th', null, t('st.diag.rtt')), h('th', null, t('st.diag.shape')))),
-                    h('tbody', null, (diag.data.checks || []).map(function (c) {
-                      return h('tr', { key: c.name },
-                        h('td', { className: 'sg-mono' }, c.path),
-                        h('td', null, h('span', { title: c.message || '', className: c.ok ? 'sg-pill-ok' : 'sg-pill-fail' }, c.ok ? t('st.diag.ok') : t('st.diag.fail') + ' (' + c.status + ')')),
-                        h('td', { className: 'sg-mono' }, c.rtt + ' ' + t('dm.rttUnit')),
-                        h('td', { className: 'sg-mono' }, c.shape));
-                    })))))
+                h('div', { className: 'sg-diag-summary' },
+                  h('span', { className: 'sg-sub' }, gateway),
+                  rows.length ? Btn({ label: t('st.diag.copy'), sm: true, onClick: copyDiagnostics }) : null),
+                h('div', { className: 'sg-sub sg-diag-copy-status', role: 'status' }, copyState ? t(copyState) : null),
+                copyState === 'st.diag.copyFailed' ? h('textarea', {
+                  className: 'sg-input sg-diag-report', readOnly: true, rows: 5,
+                  'aria-label': t('st.diagnostics'), value: report(),
+                  onFocus: function (e) { e.currentTarget.select(); }
+                }) : null,
+                rows.length ? h('div', { className: 'sg-table-wrap sg-diag-wrap', role: 'region', tabIndex: 0, 'aria-label': t('st.diagnostics') },
+                  h('table', { className: 'sg-diag-tbl', role: 'table', 'aria-label': t('st.diagnostics') },
+                    h('thead', { role: 'rowgroup' }, h('tr', { role: 'row' }, columns.map(function (label) {
+                      return h('th', { key: label, scope: 'col', role: 'columnheader' }, label);
+                    }))),
+                    h('tbody', { role: 'rowgroup' }, rows.map(function (row, i) {
+                      const isOpen = !!openChecks[i];
+                      const detailId = diagId + '-check-' + i;
+                      return h(React.Fragment, { key: i },
+                        h('tr', { role: 'row' },
+                          h('td', { role: 'rowheader', 'data-label': columns[0] },
+                            h('button', {
+                              className: 'sg-diag-toggle sg-mono', type: 'button',
+                              'aria-expanded': isOpen, 'aria-controls': isOpen ? detailId : undefined,
+                              onClick: function () {
+                                setOpenChecks(function (current) { return { ...current, [i]: !current[i] }; });
+                              }
+                            }, I('chevronDown', 13), row.path)),
+                          h('td', { role: 'cell', 'data-label': columns[1] },
+                            h('span', { className: row.ok ? 'sg-pill-ok' : 'sg-pill-fail' }, row.result + ' · ' + row.status)),
+                          h('td', { role: 'cell', 'data-label': columns[2], className: 'sg-mono' }, row.rtt),
+                          h('td', { role: 'cell', 'data-label': columns[3], className: 'sg-mono' }, row.shape)),
+                        isOpen ? h('tr', { className: 'sg-diag-detail', role: 'row' },
+                          h('td', { colSpan: columns.length, role: 'cell' },
+                            h('div', { id: detailId, className: 'sg-diag-detail-body' },
+                              h('div', { className: 'sg-sub' }, t('st.diag.details') + ' · ' + row.path),
+                              h('div', { className: 'sg-diag-message' }, t('st.diag.httpStatus') + ' · ' + row.status),
+                              h('div', { className: 'sg-diag-message' }, t('st.diag.message') + ' · ' + row.message)))) : null);
+                    })))) : h('div', { className: 'sg-sub' }, t('st.diag.noChecks')))
             : diag.error
               ? h('div', { className: 'sg-notice is-danger', role: 'alert' }, diag.error)
               : h('div', { className: 'sg-sub' }, t('st.diagnostics.desc'));
@@ -1806,7 +2371,7 @@ window.__ModuleLoader__.load({
             ? connName(active) + activeHost + ((active.local || active.isLocal || active.id === 'local') ? ' (' + t('dm.local') + ')' : '')
             : '—';
 
-          return h('div', { className: 'sg-stack' },
+          return h('div', { className: 'sg-stack sg-settings' },
             h('div', { className: 'sg-card' },
               h('div', { className: 'sg-card-h is-tall' },
                 h('div', null,
@@ -1858,7 +2423,9 @@ window.__ModuleLoader__.load({
                 h('div', null,
                   h('h2', { className: 'sg-card-t' }, I('link', 16), t('st.connection')),
                   h('p', { className: 'sg-subtitle' }, t('st.connection.desc'))),
-                h('span', { className: 'sg-kv-val sg-mono' }, activeLabel))),
+                h('div', { className: 'sg-settings-connection' },
+                  h('span', { className: 'sg-kv-val sg-mono' }, activeLabel),
+                  Btn({ label: t('action.manageConns'), icon: 'link', sm: true, onClick: function () { props.onManageConnections(); } })))),
 
             /* API diagnostics */
             h('div', { className: 'sg-card' },
@@ -1890,6 +2457,9 @@ window.__ModuleLoader__.load({
           const [showDown, setShowDown] = useState(true);
           const [showUp, setShowUp] = useState(true);
           const [selectedKey, setSelectedKey] = useState('');
+          const [detail, setDetail] = useState(null);
+          const [menuError, setMenuError] = useState('');
+          const menuButton = useRef(null);
           const [conns, setConns] = useState({ connections: [], activeId: 'local' });
           const [menuOpen, setMenuOpen] = useState(false);
           const [switching, setSwitching] = useState(false);
@@ -1904,10 +2474,11 @@ window.__ModuleLoader__.load({
             connReq.current.controller = controller;
             return api('/surge-api/connections', { signal: controller.signal }).then(function (r) {
               if (controller.signal.aborted || seq !== connReq.current.seq) return;
-              if (r.ok && Array.isArray(r.connections)) {
-                setConns({ connections: r.connections, activeId: r.activeId || 'local' });
-              }
-            }).catch(function () { /* Non-fatal; snapshot still supplies activeConnection */ });
+              if (!r.ok || !Array.isArray(r.connections)) throw new Error(tCode(r));
+              setConns({ connections: r.connections, activeId: r.activeId || 'local' });
+            }).catch(function () {
+              if (!controller.signal.aborted) setMenuError(t('detail.loadError'));
+            });
           };
 
           useEffect(function () {
@@ -1930,12 +2501,18 @@ window.__ModuleLoader__.load({
               if (switcherRef.current && !switcherRef.current.contains(e.target)) setMenuOpen(false);
             };
             const onDocKey = function (e) {
-              if (e.key === 'Escape') setMenuOpen(false);
+              if (e.key === 'Escape') {
+                e.preventDefault();
+                setMenuOpen(false);
+                menuButton.current?.focus({ preventScroll: true });
+              }
             };
-            document.addEventListener('mousedown', onDocDown);
+            const first = switcherRef.current.querySelector('[role=menuitemradio], [role=menuitem]');
+            if (first) first.focus({ preventScroll: true });
+            document.addEventListener('pointerdown', onDocDown);
             document.addEventListener('keydown', onDocKey);
             return function () {
-              document.removeEventListener('mousedown', onDocDown);
+              document.removeEventListener('pointerdown', onDocDown);
               document.removeEventListener('keydown', onDocKey);
             };
           }, [menuOpen]);
@@ -1957,6 +2534,8 @@ window.__ModuleLoader__.load({
           const switchTo = function (id) {
             if (switching) return;
             setMenuOpen(false);
+            setMenuError('');
+            menuButton.current?.focus({ preventScroll: true });
             if (active && active.id === id) return;
             setSwitching(true);
             post('/surge-api/connection/activate', { id: id }).then(function (r) {
@@ -1964,8 +2543,10 @@ window.__ModuleLoader__.load({
                 if (Array.isArray(r.connections)) setConns({ connections: r.connections, activeId: r.activeId || id });
                 store.invalidate();
                 store.fetch();
+              } else {
+                setMenuError(t('detail.switchError') + ' · ' + tCode(r));
               }
-            }).catch(function () { /* noop */ }).finally(function () { setSwitching(false); });
+            }).catch(function () { setMenuError(t('detail.switchError')); }).finally(function () { setSwitching(false); });
           };
 
           const tabs = [
@@ -1989,8 +2570,25 @@ window.__ModuleLoader__.load({
           };
 
           const menuItems = conns.connections.length ? conns.connections : (active ? [active] : []);
+          const connectionId = active && active.id;
+          const revision = state.snap && state.snap.connectionRevision;
+          const closeDetail = function () { setDetail(null); };
+          const openDetail = function (kind, trigger, options) {
+            setDetail({ kind, trigger, connectionId, revision, tab, ...options });
+          };
+          useEffect(function () {
+            setDetail(null);
+            setSelectedKey('');
+          }, [connectionId, revision]);
+          const goToTab = function (key) {
+            closeDetail();
+            setTab(key);
+            const button = tabRefs.current[key];
+            if (button) requestAnimationFrame(function () { button.focus({ preventScroll: true }); });
+          };
+          const visibleDetail = detail && detail.tab === tab && detail.connectionId === connectionId && detail.revision === revision;
 
-          return h('div', { className: rootCls },
+          return h('div', { className: rootCls }, h('div', { className: 'sg-inner' },
             h('div', { className: 'sg-header' },
               h('div', { className: 'sg-brand' }, I('activity', 22)),
               h('div', { className: 'sg-head-txt' },
@@ -2030,26 +2628,44 @@ window.__ModuleLoader__.load({
               h('span', { className: 'sg-tabbar-sp' }),
               h('div', { className: 'sg-switcher', ref: switcherRef },
                 h('button', {
-                  type: 'button', className: 'sg-active-chip',
+                  type: 'button', className: 'sg-active-chip', ref: menuButton,
                   'aria-haspopup': 'menu', 'aria-expanded': menuOpen ? 'true' : 'false',
                   title: t('action.switchConn'),
                   'aria-label': t('action.switchConn') + (active ? ': ' + connName(active) : ''),
-                  disabled: switching,
+                  'aria-disabled': switching,
                   onClick: function () {
-                    setMenuOpen(function (v) {
-                      const next = !v;
-                      if (next) loadConns();
-                      return next;
-                    });
+                    if (switching) return;
+                    setMenuOpen(!menuOpen);
+                    if (!menuOpen) { setMenuError(''); loadConns(); }
+                  },
+                  onKeyDown: function (e) {
+                    if (e.key === 'ArrowDown' && !switching && !menuOpen) {
+                      e.preventDefault(); setMenuError(''); setMenuOpen(true); loadConns();
+                    }
                   }
                 }, I('link', 13), h('span', null, active ? connName(active) : t('dm.localName')), I('chevronDown', 13, 'sg-chev')),
                 menuOpen
-                  ? h('div', { className: 'sg-popover', role: 'menu' },
+                  ? h('div', { className: 'sg-popover', role: 'menu', 'aria-label': t('action.switchConn'),
+                      onBlur: function (e) { if (e.relatedTarget && !switcherRef.current.contains(e.relatedTarget)) setMenuOpen(false); },
+                      onKeyDown: function (e) {
+                        if (e.key === 'Tab') {
+                          menuButton.current?.focus({ preventScroll: true });
+                          setMenuOpen(false);
+                          return;
+                        }
+                        if (!['ArrowUp', 'ArrowDown', 'Home', 'End'].includes(e.key)) return;
+                        e.preventDefault();
+                        const items = Array.from(e.currentTarget.querySelectorAll('button'));
+                        const index = items.indexOf(document.activeElement);
+                        const next = e.key === 'Home' ? 0 : e.key === 'End' ? items.length - 1
+                          : (index + (e.key === 'ArrowUp' ? -1 : 1) + items.length) % items.length;
+                        items[next]?.focus();
+                      } },
                       menuItems.map(function (c) {
                         const isCur = active ? active.id === c.id : !!c.active;
                         const hostTxt = c.host && c.port ? (c.host.includes(':') ? '[' + c.host + ']' : c.host) + ':' + c.port : '';
                         return h('button', {
-                          key: c.id, type: 'button', role: 'menuitemradio',
+                          key: c.id, type: 'button', role: 'menuitemradio', tabIndex: -1,
                           'aria-checked': isCur ? 'true' : 'false',
                           className: 'sg-pop-item' + (isCur ? ' is-active' : ''),
                           onClick: function () { switchTo(c.id); }
@@ -2060,18 +2676,20 @@ window.__ModuleLoader__.load({
                       }),
                       h('div', { className: 'sg-pop-div' }),
                       h('button', {
-                        type: 'button', role: 'menuitem', className: 'sg-pop-item sg-pop-foot',
-                        onClick: function () { setMenuOpen(false); setTab('devices'); }
+                        type: 'button', role: 'menuitem', tabIndex: -1, className: 'sg-pop-item sg-pop-foot',
+                        onClick: function () { setMenuOpen(false); goToTab('devices'); }
                       }, I('settings', 13), h('span', null, t('action.manageConns'))))
                   : null)),
 
+            menuError ? h('div', { className: 'sg-notice is-danger', role: 'alert' }, menuError) : null,
             h('div', { role: 'tabpanel', id: 'sg-panel-' + tab, 'aria-labelledby': 'sg-tab-' + tab },
               tab === 'overview'
-                ? h(Overview, { ui: ui })
+                ? h(Overview, { ui, openDetail })
                 : tab === 'devices'
-                  ? h(DevicesPanel, { key: 'devices', onConnectionsChanged: loadConns })
-                  : h(SettingsPanel, { key: 'settings', activeConnection: active }))
-          );
+                  ? h(DevicesPanel, { key: 'devices', onConnectionsChanged: loadConns, openDetail, onOverview: function () { goToTab('overview'); } })
+                  : h(SettingsPanel, { key: 'settings', activeConnection: active, onManageConnections: function () { goToTab('devices'); } })),
+            visibleDetail ? h(DetailDrawer, { detail, onClose: closeDetail }) : null
+          ));
         }
 
         /* ---- Register the panel and its sidebar icon together ---- */

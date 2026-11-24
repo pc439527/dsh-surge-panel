@@ -21,6 +21,14 @@ A DSH-native plugin adapted from the original `surge-lan-console`. All data come
 
 Preferences and connections are stored separately: preferences in browser `localStorage`; connection metadata and API keys in `~/.dsh/surge-panel-connections.json` (plain JSON, mode 600). Connection lists return a `hasKey` flag, connection metadata and CA certificates, without stored keys. Overview and diagnostics target the selected instance; Fleet always includes all configured connections and Local Surge.
 
+## Highlights in 1.2.0
+
+- **Read-only detail endpoint with redaction**: a new `/surge-api/detail` route exposes bounded primitive fields for rules, policies, modules, DNS cache, recent requests, devices, nodes, events and the current profile. Detail pages load on demand and support keyword search, status/type filters, lookup by ID and cursor pagination (page capping at 128 KiB).
+- **Credential safety**: URLs in detail and snapshot responses are stripped of userinfo, query strings and fragments; the stored API key is masked with `*`; and anything resembling a Bearer token, Cookie, password or API key is never returned. Events and profiles are reduced to safe summaries.
+- **Diagnostics UX**: each diagnostic endpoint expands to reveal its HTTP status and error reason, and the whole report can be copied to the clipboard; narrow panels render request and diagnostic tables as stacked rows.
+- **Connection switching & fleet**: the active-connection popover gains keyboard navigation and focus management, with explicit load/switch error messages; the fleet strip can filter by online status and open per-instance detail.
+- **Tests**: the regression suite grows from 30 to 37 tests, covering detail pagination, redaction, connection-change isolation and version/dictionary/packaging consistency.
+
 ## Highlights in 1.1.2
 
 - **fnOS subpath gateway compatibility**: the frontend `api()` helper auto-detects `window.__FNOS_GATEWAY_CONFIG__.prefix` and `<base href>` so `/surge-api/*` works seamlessly behind subpath reverse proxies such as fnOS (`/app/fn-deepseek-harness`).

@@ -67,7 +67,7 @@ function hostHarness(initial = { activeId: 'a', connections: [conn('a'), conn('b
     },
     unlinkSync(path) { files.delete(path); }
   });
-  vm.runInContext(hostSource + '\nglobalThis.subject = { getJSON, cachedJSON, loadConnections, connectionCopy, saveConnections, normalizeConnection, connectionToEndpoint, buildResponse, buildSnapshot, readBody, wrap, mapLimited, handleConnectionsList, handleConnectionSave, handleConnectionDelete, handleConnectionActivate, handleConnectionTest, handleFleet, handleDiagnostics, discover, resetRuntimeState, guard };', context);
+  vm.runInContext(hostSource + '\nglobalThis.subject = { getJSON, cachedJSON, loadConnections, connectionCopy, saveConnections, normalizeConnection, connectionToEndpoint, buildResponse, buildSnapshot, readBody, wrap, mapLimited, handleConnectionsList, handleConnectionSave, handleConnectionDelete, handleConnectionActivate, handleConnectionTest, handleFleet, handleDiagnostics, handleDetail, discover, resetRuntimeState, guard };', context);
   return {
     ...context.subject, context, files, operations,
     setResponder(fn) { responder = fn; }, advance(ms) { clock += ms; }, failStorage(stage) { storageError = stage; },
@@ -232,6 +232,214 @@ test('fleet worker concurrency is bounded', async () => {
     active++; peak = Math.max(peak, active); await new Promise(resolve => setImmediate(resolve)); active--; return value;
   });
   assert.equal(peak, 4); assert.equal(results.length, 11); assert.equal(results[10], 10);
+});
+
+const detailFixtures = {
+  '/v1/rules': { rules: [{ type: 'DOMAIN', value: 'example.test', policy: 'DIRECT', raw: 'never-export' }, 'RULE-SET,https://user:rule-secret@rules.test/list?auth=query-secret#fragment-secret,PROXY', 'FINAL,DIRECT'] },
+  '/v1/policies': { 'policy-groups': ['Proxy'], proxies: [{ name: 'Node A', password: 'never-export' }] },
+  '/v1/modules': { enabled: ['Network'], available: ['Network', 'Disabled'], modules: [{ name: 'Network', type: 'installed', text: 'never-export' }] },
+  '/v1/dns': { dnsCache: [{ domain: 'example.test', addresses: ['192.0.2.8', '2001:db8::8'], type: 'AAAA', ttl: 60 }] },
+  '/v1/requests/recent': { requests: [
+    { id: 42, URL: 'https://user:req-secret@example.test/path?token=query-secret#fragment-secret', policyName: 'DIRECT', status: 'Completed', completed: true, inBytes: 5, outBytes: 4, startDate: 1700000000, notes: ['never-export'], headers: { Authorization: 'Bearer never-export' } },
+    { id: 43, url: '/path/password/path-secret?api_key=query-secret', remoteHost: 'fallback.test', status: 'Failed', failed: true, completed: true },
+    { id: 'Bearer id-secret', url: '//user:req-secret@active.test/path?token=query-secret', status: 'Cookie: status-secret', policyName: 'Authorization: policy-secret' }
+  ] },
+  '/v1/devices': { devices: [{ name: 'Desktop', identifier: 'desk', displayIPAddress: '192.0.2.7', inBytesStat: { total: 11 }, outBytesStat: { total: 12 }, currentInSpeed: 13, currentOutSpeed: 14 }] },
+  '/v1/traffic': { interface: { WiFi: { in: 50, out: 40, inCurrentSpeed: 30, outCurrentSpeed: 20 } }, connector: { 'Node A': { in: 5, out: 4, inCurrentSpeed: 3, outCurrentSpeed: 2 } } },
+  '/v1/events': { events: [{ type: 2, date: '2023-11-14T22:13:20Z', content: 'warning Authorization: Bearer event-secret', identifier: 'event-id-secret' }] },
+  '/v1/profiles/current': { name: 'Main', profile: '[General]\nhttp-api = never-export', originalProfile: 'never-export' }
+};
+
+async function detail(host, query, options = {}) {
+  const response = responseSink();
+  await host.handleDetail({ method: 'GET', headers: {}, url: '/surge-api/detail?' + query, ...options }, response);
+  return response;
+}
+
+test('detail kinds translate fixed endpoint payloads into bounded primitive fields', async () => {
+  const host = hostHarness();
+  const paths = [];
+  host.stubGet(async (ep, path) => {
+    paths.push(path);
+    return { ok: true, status: 200, data: detailFixtures[path] };
+  });
+  const expectations = {
+    rules: { type: 'DOMAIN', value: 'example.test', policy: 'DIRECT' },
+    policies: { type: 'group' },
+    modules: { enabled: true, type: 'installed' },
+    dns: { domain: 'example.test', address: '192.0.2.8, 2001:db8::8', type: 'AAAA', ttl: 60 },
+    requests: { target: 'https://example.test/path', policy: 'DIRECT', status: 'Completed', failed: false, completed: true, inBytes: 5, outBytes: 4, startDate: 1700000000 },
+    devices: { ip: '192.0.2.7', inBytes: 11, outBytes: 12, inSpeed: 13, outSpeed: 14 },
+    nodes: { inBytes: 5, outBytes: 4, inSpeed: 3, outSpeed: 2 },
+    events: { type: 2, tone: 'warn', timestamp: 1700000000000 },
+    interfaces: { inBytes: 50, outBytes: 40, inSpeed: 30, outSpeed: 20 },
+    profile: { name: 'Main' }
+  };
+  for (const [kind, fields] of Object.entries(expectations)) {
+    const res = await detail(host, 'kind=' + kind + '&connectionId=a&revision=0');
+    assert.equal(res.status, 200, kind);
+    const body = res.body;
+    assert.equal(body.ok, true);
+    assert.equal(body.stale, false);
+    assert.equal(body.updatedAt, 1700000010000);
+    assert.equal(body.activeConnection.id, 'a');
+    assert.equal(body.connectionRevision, 0);
+    assert.equal(body.limit, 25);
+    const item = body.items.find(item => JSON.stringify(item.fields) === JSON.stringify(fields));
+    assert.ok(item, JSON.stringify(body.items));
+    assert.deepEqual(Object.keys(item), ['id', 'title', 'fields']);
+    assert.ok(item.id && item.title);
+    assert.doesNotMatch(JSON.stringify(body), /never-export|test-only|(?:rule|req|query|fragment|path|id|status|policy|event)-secret/);
+  }
+  assert.deepEqual(paths.sort(), Object.keys(detailFixtures).sort());
+});
+
+test('detail filters, searches visible values, selects by ID and paginates matching rows', async () => {
+  const host = hostHarness();
+  host.stubGet(async (ep, path) => ({ ok: true, status: 200, data: detailFixtures[path] }));
+  const page = await detail(host, 'kind=rules&q=DIRECT&offset=1&limit=1');
+  assert.equal(page.body.total, 2);
+  assert.equal(page.body.offset, 1);
+  assert.equal(page.body.limit, 1);
+  assert.equal(page.body.items[0].title, 'FINAL');
+  const byId = await detail(host, 'kind=rules&id=' + page.body.items[0].id);
+  assert.equal(byId.body.total, 1);
+  assert.equal(byId.body.items[0].title, 'FINAL');
+  for (const [query, title] of [
+    ['kind=rules&filter=rule-set', 'https://rules.test/list'],
+    ['kind=policies&filter=proxy', 'Node A'],
+    ['kind=modules&filter=disabled', 'Disabled'],
+    ['kind=dns&filter=AAAA', 'example.test'],
+    ['kind=requests&filter=failed', 'fallback.test'],
+    ['kind=requests&filter=active', '//active.test/path']
+  ]) {
+    const res = await detail(host, query);
+    assert.equal(res.body.total, 1, query);
+    assert.equal(res.body.items[0].title, title);
+  }
+  const event = await detail(host, 'kind=events&filter=WARN');
+  assert.equal(event.body.total, 1);
+  for (const query of ['kind=rules&offset=10', 'kind=requests&q=query-secret', 'kind=profile&q=never-export']) {
+    const res = await detail(host, query);
+    assert.equal(res.body.ok, true);
+    assert.equal(res.body.stale, false);
+    assert.deepEqual(res.body.items, []);
+  }
+  assert.equal((await detail(host, 'kind=rules&limit=1000')).body.limit, 100);
+});
+
+test('detail bounds the serialized page and keeps all matching rows reachable with offset', async () => {
+  const host = hostHarness();
+  const label = '界'.repeat(256);
+  const rules = Array.from({ length: 120 }, () => ({ type: 'DOMAIN', value: label, policy: label }));
+  host.stubGet(async () => ({ ok: true, status: 200, data: { rules } }));
+  const first = (await detail(host, 'kind=rules&limit=100')).body;
+  assert.equal(first.total, 120);
+  assert.ok(first.items.length > 0 && first.items.length < 100);
+  assert.ok(Buffer.byteLength(JSON.stringify(first)) < 129 * 1024);
+  const second = (await detail(host, 'kind=rules&limit=100&offset=' + first.items.length)).body;
+  assert.equal(second.items[0].id, 'rule-' + first.items.length);
+});
+
+test('detail shares cached requests with snapshot and distinguishes empty, stale and failed', async () => {
+  const host = hostHarness();
+  const counts = new Map();
+  let fail = false;
+  host.stubGet(async (ep, path) => {
+    counts.set(path, (counts.get(path) || 0) + 1);
+    if (fail && path === '/v1/events') return { ok: false, status: 500, message: 'never-export' };
+    return { ok: true, status: 200, data: path === '/v1/events' ? { events: [] } : detailFixtures[path] || dataFor(path) };
+  });
+  const [, fresh] = await Promise.all([host.buildResponse(responseSink()), detail(host, 'kind=events')]);
+  assert.equal(counts.get('/v1/events'), 1);
+  assert.deepEqual(fresh.body.items, []);
+  assert.equal(fresh.body.stale, false);
+  fail = true;
+  host.advance(1001);
+  const stale = await detail(host, 'kind=events');
+  assert.equal(stale.body.ok, true);
+  assert.equal(stale.body.stale, true);
+  assert.deepEqual(stale.body.items, []);
+  assert.equal(stale.body.updatedAt, fresh.body.updatedAt);
+  assert.equal(counts.get('/v1/events'), 2);
+  const state = host.connectionCopy();
+  state.activeId = 'b'; host.saveConnections(state);
+  const failed = await detail(host, 'kind=events&connectionId=b&revision=1');
+  assert.equal(failed.status, 502);
+  assert.equal(failed.body.code, 'API_ERROR');
+  assert.doesNotMatch(JSON.stringify(failed.body), /never-export/);
+});
+
+test('detail rejects invalid queries, cross-origin calls and mismatched or changed connections', async () => {
+  const host = hostHarness(), gate = deferred(), started = deferred();
+  let calls = 0;
+  host.stubGet(async () => {
+    calls++;
+    started.resolve();
+    await gate.promise;
+    return { ok: true, status: 200, data: detailFixtures['/v1/rules'] };
+  });
+  for (const query of ['kind=__proto__', 'kind=/v1/rules', 'kind=rules&limit=0', 'kind=rules&offset=-1', 'kind=rules&revision=1.1', 'kind=rules&kind=profile']) {
+    const res = await detail(host, query);
+    assert.equal(res.status, 400, query);
+    assert.equal(res.body.code, 'INVALID_DETAIL_QUERY');
+  }
+  for (const query of ['kind=rules&connectionId=b', 'kind=rules&revision=1']) {
+    const res = await detail(host, query);
+    assert.equal(res.status, 409);
+    assert.equal(res.body.code, 'CONNECTION_CHANGED');
+  }
+  assert.equal((await detail(host, 'kind=rules', { headers: { 'sec-fetch-site': 'cross-site' } })).status, 403);
+  assert.equal((await detail(host, 'kind=rules', { method: 'POST' })).status, 405);
+  assert.equal(calls, 0);
+  const pending = detail(host, 'kind=rules&connectionId=a&revision=0');
+  await started.promise;
+  const state = host.connectionCopy(); state.activeId = 'b'; host.saveConnections(state);
+  gate.resolve();
+  const conflict = await pending;
+  assert.equal(conflict.status, 409);
+  assert.equal(conflict.body.code, 'CONNECTION_CHANGED');
+  assert.equal(await detail(hostHarness({ activeId: 'local', connections: [] }), 'kind=rules').then(r => r.body.code), 'NO_GATEWAY');
+});
+
+test('snapshot adds device and node directions and retains redacted request and event shapes', async () => {
+  const host = hostHarness();
+  host.stubGet(async (ep, path) => ({ ok: true, status: 200, data: detailFixtures[path] || dataFor(path) }));
+  const res = responseSink(); await host.buildResponse(res);
+  const { snapshot } = res.body;
+  for (const [row, expected] of [[snapshot.devices[0], [11, 12, 13, 14]], [snapshot.nodes[0], [5, 4, 3, 2]]]) {
+    assert.deepEqual([row.inBytes, row.outBytes, row.inSpeed, row.outSpeed], expected);
+    assert.equal(row.bytes, row.inBytes + row.outBytes);
+    assert.equal(row.speed, row.inSpeed + row.outSpeed);
+  }
+  assert.equal(snapshot.recentRequests.find(item => item.id === '42').target, 'https://example.test/path');
+  assert.equal(snapshot.events[0].tone, 'warn');
+  assert.doesNotMatch(JSON.stringify(snapshot), /never-export|test-only|(?:rule|req|query|fragment|path|id|status|policy|event)-secret/);
+});
+
+test('snapshot keeps safe event context and uses detail IDs even when upstream rows are missing identifiers', async () => {
+  const host = hostHarness();
+  host.stubGet(async (ep, path) => {
+    const overrides = {
+      '/v1/events': { events: [
+        { type: 1, content: 'Connected to https://operator:private-value@gateway.test/status?key=private-query#private-fragment' },
+        { type: 1, content: 'Gateway route changed' },
+        { type: 1, content: 'Configured value test-only' }
+      ] },
+      '/v1/devices': { devices: [null, { currentOutSpeed: 1 }] },
+      '/v1/requests/recent': { requests: [null, { url: 'https://example.test' }] },
+      '/v1/profiles/current': { name: 'https://operator:private-value@gateway.test/main?key=private-query' }
+    };
+    return { ok: true, status: 200, data: overrides[path] || dataFor(path) };
+  });
+  const res = responseSink(); await host.buildResponse(res);
+  const { snapshot } = res.body;
+  assert.deepEqual(snapshot.events.map(event => event.text), ['Connected to https://gateway.test/status', 'Gateway route changed', 'Configured value *']);
+  assert.equal(snapshot.profile, 'https://gateway.test/main');
+  const request = await detail(host, 'kind=requests&id=' + encodeURIComponent(snapshot.recentRequests[0].id));
+  assert.equal(request.body.items[0].id, 'request-1');
+  const device = await detail(host, 'kind=devices&id=' + encodeURIComponent(snapshot.devices[0].key));
+  assert.equal(device.body.items[0].id, 'device-1');
 });
 
 function clientHarness(fetchImpl, extras = {}) {

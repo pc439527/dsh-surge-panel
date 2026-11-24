@@ -4,13 +4,13 @@
 
 这是一个 DSH 原生插件，参照 `surge-lan-console` 的监控体验适配。面板直接读取 Surge HTTP API，支持概览、设备管理和设置三个页签，不需要另起一个前端服务。
 
-![版本 1.1.2](https://img.shields.io/badge/version-1.1.2-4D6BFE?style=flat-square)
+![版本 1.2.0](https://img.shields.io/badge/version-1.2.0-4D6BFE?style=flat-square)
 ![DSH 原生插件](https://img.shields.io/badge/DSH-native_plugin-222222?style=flat-square)
 ![Surge 只读监控](https://img.shields.io/badge/Surge-read--only-22A06B?style=flat-square)
 
-![Surge 系统监控面板 v1.1.2 深色概览预览](docs/images/overview-redacted.png)
+![Surge 系统监控面板 v1.2.0 深色概览预览](docs/images/overview-redacted.png)
 
-> 本文档中的三张预览图均直接由 `v1.1.2` 插件前端使用 RFC 5737 示例地址（`192.0.2.0/24`、`198.51.100.0/24`）和 RFC 2606 示例域名渲染，并经重新编码与扁平化去除元数据，不含任何真实设备、内网地址或密钥。
+> 本文档中的三张预览图均由插件前端使用 RFC 5737 示例地址（`192.0.2.0/24`、`198.51.100.0/24`）和 RFC 2606 示例域名渲染，并经重新编码与扁平化去除元数据，不含任何真实设备、内网地址或密钥。
 
 ## 能做什么
 
@@ -34,21 +34,30 @@
 
 顶部指标条展示当前连接的关键指标，点击「活动连接」卡片中的「查看明细」可展开「最近请求」表格（按失败 → 活跃 → 完成排序）。流量趋势图提供 Y 轴刻度、悬浮十字准星与数值提示，且量程随当前可见曲线动态调整，统一采用二进制速率换算（B/s ~ GB/s）。LAN 设备按实时速率与总流量排序并在行内展示实时速率；节点流量按会话流量排列；最近事件支持去重与点击展开。
 
-概览里的「设备总览」指当前 Surge 下的 LAN 客户端；设备管理里的 Fleet 指多个 Surge 实例，两者统计对象不同。
+概览里的「设备总览」指当前 Surge 下的 LAN 客户端。设备管理里的 Fleet 汇总多个 Surge 实例，并可按在线状态筛选或查看单实例详情。
+
+概览中的网卡流量、请求、LAN 设备、节点、事件和网络环境提供只读详情。列表按需读取，支持按关键词搜索，部分列表可按状态或类别筛选。详情以当前 Surge 实例可提供的字段为准，配置只显示安全摘要。流量趋势可用鼠标、触摸或方向键查看采样点。
 
 ### 设备管理：把多个 Surge 实例放在一起
 
-![设备管理 v1.1.2 浅色界面预览](docs/images/devices-preview.png)
+![设备管理 v1.2.0 浅色界面预览](docs/images/devices-preview.png)
 
 每个连接卡片可独立执行连通性测试，测试结果内联展示在对应卡片内并区分成功/失败语义色。本机 Surge 卡片接入实时 Fleet 状态（在线/离线、访问地址、延迟、吞吐与错误原因），可切换与测试，不可编辑或删除。新增或编辑连接采用原生表单，支持客户端前置校验、`Enter` 提交、`Esc` 取消以及「保存并设为当前」；删除确认使用危险态「确认删除」按钮，若删除正在编辑的连接会自动关闭表单。
 
 ### 设置：调整刷新节奏，检查端点状态
 
-![设置页 v1.1.2 浅色界面预览](docs/images/settings-preview.png)
+![设置页 v1.2.0 浅色界面预览](docs/images/settings-preview.png)
 
 外观设置只作用于本面板（浅色模式主按钮对比度已按 WCAG AA 校准）。自动采样仅在面板挂载、页面可见且未暂停时运行；上次请求结束后再安排下一次，避免慢接口导致请求堆积。点击「恢复默认」后会展示确认反馈。
 
-遇到数据缺失时，可在「设置 → API 诊断」查看全部 10 个端点的状态、延迟和响应结构（窄屏支持横向滚动），快速定位连接、证书或 Surge 版本差异问题。
+遇到数据缺失时，可在「设置 → API 诊断」查看全部 10 个端点的状态、延迟和响应结构。展开任一端点可查看 HTTP 状态和错误原因，也可以复制诊断摘要。窄面板内，请求和诊断表格按条目纵向排列。
+
+## v1.2.0 更新摘要
+
+- **只读详情与脱敏**：新增 `/surge-api/detail` 端点，按类型提供规则、策略、模块、DNS、最近请求、设备、节点、事件与配置摘要的只读详情；按需读取，支持关键词搜索、状态/类别筛选、按 ID 定位与分页。
+- **凭据不回传**：详情与快照中的 URL 去除用户信息、查询参数与片段；API 密钥、Bearer/Cookie/密码等凭据样式内容一律不回传，事件与配置仅保留安全摘要。
+- **诊断与交互改进**：API 诊断支持展开查看 HTTP 状态与错误原因、一键复制诊断摘要；窄面板表格改为纵向卡片；连接切换菜单补齐键盘导航与焦点管理；Fleet 支持按在线状态筛选与单实例详情。
+- **测试覆盖**：新增 7 项回归测试（详情分页、脱敏、连接切换隔离等），回归测试总数达到 37 项。
 
 ## v1.1.2 更新摘要
 
@@ -80,12 +89,12 @@ cd dsh-surge-panel
 
 #### 方式 B：fnOS / 远程 DSH Web 打包安装（Tarball）
 
-可从 GitHub Release 下载 `local-dsh-surge-panel-1.1.2.tgz`，或在本地执行 `npm pack` 生成发布包后上传到目标主机，通过 DSH CLI 安装到 `web` profile：
+可从 GitHub Release 下载 `local-dsh-surge-panel-1.2.0.tgz`，或在本地执行 `npm pack` 生成发布包后上传到目标主机，通过 DSH CLI 安装到 `web` profile：
 
 ```bash
 npm pack
-# 将生成的 local-dsh-surge-panel-1.1.2.tgz 上传到目标主机后执行：
-dsh plugin --profile web add /path/to/local-dsh-surge-panel-1.1.2.tgz
+# 将生成的 local-dsh-surge-panel-1.2.0.tgz 上传到目标主机后执行：
+dsh plugin --profile web add /path/to/local-dsh-surge-panel-1.2.0.tgz
 ```
 
 在 fnOS 上安装完成后，重启 `fn-deepseek-harness` 应用（例如在应用中心重启，或执行 `sudo appcenter-cli stop fn-deepseek-harness && sudo appcenter-cli start fn-deepseek-harness`），刷新浏览器即可在侧边栏看到「Surge 系统监控」。插件会自动适配 `/app/fn-deepseek-harness` 子路径前缀。
@@ -124,7 +133,7 @@ Surge 侧操作为只读监控；新增、编辑、删除连接只修改插件�
 
 ## 可靠性设计
 
-当前版本为 **1.1.2**。
+当前版本为 **1.2.0**。
 
 - **连接隔离**：配置变化会使旧缓存失效，取消或丢弃迟到响应，防止旧实例数据出现在新连接下；插件卸载时清理全部运行时缓存。
 - **有界请求**：Surge 响应设总时限并限制为 16 MiB；浏览器请求支持超时和卸载取消；提交体仅接受 JSON 对象，上限 64 KiB / 10 秒；响应缓存具备条目上限淘汰。
@@ -160,7 +169,7 @@ npm test
 npm pack --dry-run
 ```
 
-`check` 校验 Host 与 Client JavaScript 语法；`test` 运行 30 项回归测试（覆盖 Host 全路由、IPv6/SSRF 拦截、X509 CA 校验、本机发现排序、设备排序与最近请求、中英词典/版本号/打包清单一致性等），使用隔离存储和传输替身，不读取真实密钥、不访问真实 Surge。
+`check` 校验 Host 与 Client JavaScript 语法。`test` 使用隔离存储和传输替身，覆盖 Host 路由、IPv6、证书校验、采集排序、详情分页与脱敏、实例切换隔离，以及中英词典和打包清单。
 
 | 文件 | 用途 |
 | --- | --- |
